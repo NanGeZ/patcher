@@ -43,19 +43,24 @@ object ModuleScopeSyncStore {
             }
         }
 
+    // pushToCompanion() already prioritizes Shizuku and falls back to a standard exported
+    // ContentProvider call on its own, so this must not gate on ShizukuApi.isReady or call the
+    // Shizuku-only activate() directly: NPatch is a rootless framework first, Shizuku is an
+    // optional accelerant, and these two syncs are the only thing that re-arms a companion
+    // module's IXposedService binder when the manager process (re)starts -- e.g. after it was
+    // swiped from recents and the binder it had previously pushed died with it. Gating this on
+    // Shizuku left every non-Shizuku install (the common case) with no self-heal at all.
     suspend fun syncTrackedModuleScopes() =
         withContext(Dispatchers.IO) {
-            if (!nkbe.util.ShizukuApi.isReady) return@withContext
             trackedModulePackages().forEach { modulePackageName ->
-                ModuleActivationController.activate(modulePackageName)
+                ModuleActivationController.pushToCompanion(modulePackageName)
             }
         }
 
     suspend fun syncModuleScopes(modulePackageNames: Collection<String>) =
         withContext(Dispatchers.IO) {
-            if (!nkbe.util.ShizukuApi.isReady) return@withContext
             modulePackageNames.distinct().forEach { modulePackageName ->
-                ModuleActivationController.activate(modulePackageName)
+                ModuleActivationController.pushToCompanion(modulePackageName)
             }
         }
 

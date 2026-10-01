@@ -62,6 +62,14 @@ class LSPApplication : Application() {
         prefs = lspApp.getSharedPreferences("settings", Context.MODE_PRIVATE)
         ManagerLogger.init()
         ShizukuApi.init()
+        // Re-arm every companion module's IXposedService binder on every manager process start,
+        // not just once Shizuku connects: this is what undoes a companion going dark after the
+        // manager was killed (e.g. swiped from recents) and never got its binder refreshed.
+        // Shizuku, when it does come up, still re-runs this as a faster/more reliable retry via
+        // ModuleActivationController.activate(), but a non-Shizuku install must not depend on it.
+        globalScope.launch {
+            ModuleScopeSyncStore.syncTrackedModuleScopes()
+        }
         ShizukuApi.addOnReadyListener {
             globalScope.launch {
                 ModuleScopeSyncStore.syncTrackedModuleScopes()
