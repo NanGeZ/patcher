@@ -64,6 +64,7 @@ public class SigBypass {
     private static boolean javaFilePathHooked;
     private static boolean nativeOpenatEnabled;
     private static boolean seccompRedirectEnabled;
+    private static boolean svcRedirectEnabled;
     private static boolean useMinimalNativeFileHook;
     private static boolean libHideEnabled;
 
@@ -744,7 +745,7 @@ public class SigBypass {
         }
     }
 
-    private static boolean isSeccompRuntimeSupported() {
+    private static boolean isArm64RuntimeSupported() {
         String[] runtimeAbis = Process.is64Bit() ? Build.SUPPORTED_64_BIT_ABIS : Build.SUPPORTED_32_BIT_ABIS;
         for (String abi : runtimeAbis) {
             if ("arm64-v8a".equals(abi)) return true;
@@ -843,9 +844,7 @@ public class SigBypass {
         if (hookLevel >= Constants.SIGBYPASS_BASIC && redirectApkPath != null) {
             hookJavaIO(currentApkPath, redirectApkPath);
             hookJavaFilePathAccessors();
-            useMinimalNativeFileHook = useMinimalNativeFileHook
-                    || (hookLevel >= Constants.SIGBYPASS_EXTREME
-                    && is360ProtectedApk(redirectApkPath));
+            useMinimalNativeFileHook = useMinimalNativeFileHook || is360ProtectedApk(redirectApkPath);
             if (useMinimalNativeFileHook) {
                 XLog.i(TAG, "360-like protector detected, using minimal native APK redirect");
                 org.lsposed.lspd.nativebridge.SigBypass.enableOpenatHookMinimal(
@@ -881,12 +880,31 @@ public class SigBypass {
             hookPackageParserGeneratePackageInfo(context);
             hookApplicationInfoConstructor(context);
             hookGetPackageInfo(context);
+
+            // Every hook above, and the openat/GOT redirects further up, only fire for code that
+            // actually calls into libc. A packer that instead reads its own APK via a hand-written
+            // inline `svc #0` sails past all of them; this is EXTREME's answer to that gap. See
+            // svc_bypass.cpp for the full design note.
+            if (redirectApkPath == null) {
+                XLog.w(TAG, "Svc redirect skipped: original APK unavailable");
+            } else if (!isArm64RuntimeSupported()) {
+                XLog.w(TAG, "Svc redirect skipped on non-arm64 runtime ABI");
+            } else if (org.lsposed.lspd.nativebridge.SigBypass.enableSvcRedirect(
+                    currentApkPath,
+                    redirectApkPath,
+                    context.getPackageName()
+            )) {
+                if (!svcRedirectEnabled) XLog.i(TAG, "Svc redirect enabled");
+                svcRedirectEnabled = true;
+            } else {
+                XLog.w(TAG, "Svc redirect failed to init");
+            }
         }
 
         boolean useSeccompRedirect = redirectApkPath != null
                 && sigBypassLevel == Constants.SIGBYPASS_SECCOMP;
         if (useSeccompRedirect) {
-            if (!isSeccompRuntimeSupported()) {
+            if (!isArm64RuntimeSupported()) {
                 XLog.w(TAG, "Seccomp skipped on non-arm64 runtime ABI");
             } else if (FunPatch.enableSeccompV2Redirect(
                         currentApkPath,
