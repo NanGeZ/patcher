@@ -1,4 +1,4 @@
-﻿//
+//
 // Created by VIP on 2021/4/25.
 // Modified  by HSSkyBoy on 2025/12/15
 //
@@ -1770,6 +1770,7 @@ namespace lspd {
     }
 
 
+
     static void set_module_native_library_roots_impl(JNIEnv* env, jobjectArray jRoots) {
         std::scoped_lock lock(g_path_mutex);
         moduleNativeLibraryRoots.clear();
@@ -1778,8 +1779,16 @@ namespace lspd {
         for (jsize i = 0; i < count; ++i) {
             auto root = static_cast<jstring>(env->GetObjectArrayElement(jRoots, i));
             if (root == nullptr) continue;
-            lsplant::JUTFString root_string(env, root);
-            std::string value(root_string.get());
+            // JUTFString's destructor calls ReleaseStringUTFChars(root, ...) when it goes out of
+            // scope. It must do that BEFORE DeleteLocalRef(root) runs below, or it releases chars
+            // through a local reference the JVM already popped -- ART's CheckJNI then aborts with
+            // "jstring is an invalid local reference" (SIGABRT), exactly as reported upstream for
+            // this function. Nesting it in its own block forces that ordering.
+            std::string value;
+            {
+                lsplant::JUTFString root_string(env, root);
+                value.assign(root_string.get());
+            }
             env->DeleteLocalRef(root);
             if (!value.empty()
                 && std::find(moduleNativeLibraryRoots.begin(), moduleNativeLibraryRoots.end(), value)
