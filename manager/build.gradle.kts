@@ -8,7 +8,7 @@ val verCode: Int by rootProject.extra
 val verName: String by rootProject.extra
 val coreVerCode: Int by rootProject.extra
 val coreVerName: String by rootProject.extra
-val couiVersion = npatch.versions.coui.get()
+val miuixVersion = npatch.versions.miuix.get()
 
 fun decodeSha256Hex(value: String): ByteArray {
     require(value.length == 64) { "Manager signature digest must be 64 hex chars: $value" }
@@ -168,14 +168,14 @@ dependencies {
     implementation("me.zhanghai.android.appiconloader:appiconloader:1.5.0")
     implementation(npatch.hiddenapibypass)
 
-    // COUI & Haze
+    // miuix & Haze
     implementation(npatch.haze)
     implementation(npatch.hazeBlur)
     implementation(npatch.backdrop)
-    implementation("top.yukonga.miuix.kmp:miuix-blur:0.9.3")
-    implementation("io.github.suqi8.coui.kmp:coui-ui:$couiVersion")
-    implementation("io.github.suqi8.coui.kmp:coui-preference:$couiVersion")
-    implementation("io.github.suqi8.coui.kmp:coui-icons:$couiVersion")
+    implementation("top.yukonga.miuix.kmp:miuix-blur:$miuixVersion")
+    implementation("top.yukonga.miuix.kmp:miuix-ui:$miuixVersion")
+    implementation("top.yukonga.miuix.kmp:miuix-preference:$miuixVersion")
+    implementation("top.yukonga.miuix.kmp:miuix-icons:$miuixVersion")
     implementation(npatch.androidx.webkit)
 
 

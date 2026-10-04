@@ -6,10 +6,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.blur.HazeBlurStyle
 import dev.chrisbanes.haze.blur.HazeColorEffect
-import io.github.suqi8.coui.kmp.basic.CardColors
-import io.github.suqi8.coui.kmp.basic.CardDefaults
-import io.github.suqi8.coui.kmp.basic.SnackbarHostState
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.CardColors
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 const val BG_SURFACE_ALPHA = 0.6f
 private const val BG_OVERLAY_ALPHA = 0.35f
@@ -31,8 +31,8 @@ val LocalFloatingBottomBarPadding = compositionLocalOf { 0.dp }
 
 @Composable
 fun backgroundAwareCardColors(
-    color: Color = COUITheme.colorScheme.surfaceContainer,
-    contentColor: Color = COUITheme.colorScheme.onSurfaceContainer,
+    color: Color = MiuixTheme.colorScheme.surfaceContainer,
+    contentColor: Color = MiuixTheme.colorScheme.onSurfaceContainer,
     backgroundAlpha: Float = LocalCardBackgroundAlpha.current,
 ): CardColors {
     val adjusted = if (LocalBackgroundImagePath.current.isNotEmpty()) {
@@ -60,7 +60,7 @@ fun backgroundAwareColor(
 
 @Composable
 fun backgroundAwareHazeStyle(
-    surfaceColor: Color = COUITheme.colorScheme.surface,
+    surfaceColor: Color = MiuixTheme.colorScheme.surface,
     backgroundAlpha: Float = BG_SURFACE_ALPHA,
     tintAlpha: Float = HAZE_TINT_ALPHA,
 ): HazeBlurStyle {

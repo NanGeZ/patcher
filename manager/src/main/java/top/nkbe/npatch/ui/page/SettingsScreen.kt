@@ -85,29 +85,29 @@ import top.nkbe.npatch.ui.util.LocalFloatingBottomBarPadding
 import top.nkbe.npatch.ui.util.LocalFloatingGlassBottomBar
 import top.nkbe.npatch.ui.util.LocalSnackbarHost
 import top.nkbe.npatch.ui.util.backgroundAwareCardColors
-import io.github.suqi8.coui.kmp.basic.BasicComponent
-import io.github.suqi8.coui.kmp.basic.ButtonDefaults
-import io.github.suqi8.coui.kmp.basic.Card
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.COUIScrollBehavior
-import io.github.suqi8.coui.kmp.basic.Slider
-import io.github.suqi8.coui.kmp.basic.SmallTitle
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.Slider
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
 import top.nkbe.npatch.ui.component.NPatchTopAppBar
 import top.nkbe.npatch.ui.util.backgroundAwareHazeStyle
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
-import io.github.suqi8.coui.kmp.layout.DialogButtonBar
-import io.github.suqi8.coui.kmp.layout.DialogButtonBarAction
-import io.github.suqi8.coui.kmp.overlay.OverlayDialog
-import io.github.suqi8.coui.kmp.theme.COUITheme
-import io.github.suqi8.coui.kmp.utils.overScrollVertical
-import io.github.suqi8.coui.kmp.utils.scrollEndHaptic
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.nkbe.npatch.ui.component.DialogButtonBar
+import top.nkbe.npatch.ui.component.DialogButtonBarAction
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.KeyStore
@@ -117,7 +117,7 @@ private const val TAG = "SettingsScreen"
 
 @Composable
 fun SettingsScreen() {
-    val scrollBehavior = COUIScrollBehavior()
+    val scrollBehavior = MiuixScrollBehavior()
     val hazeState = rememberHazeState()
     val hazeStyle = backgroundAwareHazeStyle()
     val floatingBottomBarPadding = LocalFloatingBottomBarPadding.current
@@ -242,9 +242,9 @@ private fun DnsPreference() {
                         if (invalidUrl) R.string.settings_dns_custom_invalid
                         else R.string.settings_dns_custom_summary
                     ),
-                    color = if (invalidUrl) COUITheme.colorScheme.error
-                    else COUITheme.colorScheme.onSurfaceVariantSummary,
-                    style = COUITheme.textStyles.body2,
+                    color = if (invalidUrl) MiuixTheme.colorScheme.error
+                    else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    style = MiuixTheme.textStyles.body2,
                     modifier = Modifier.padding(bottom = 12.dp),
                 )
                 TextField(
@@ -389,14 +389,14 @@ fun InstallationSettings() {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = stringResource(R.string.settings_third_party_installer_system_default),
-                            style = COUITheme.textStyles.body1,
+                            style = MiuixTheme.textStyles.body1,
                         )
                     }
                     if (isDefaultSelected) {
                         Icon(
                             imageVector = Icons.Outlined.Check,
                             contentDescription = "Selected",
-                            tint = COUITheme.colorScheme.primary,
+                            tint = MiuixTheme.colorScheme.primary,
                         )
                     }
                 }
@@ -419,19 +419,19 @@ fun InstallationSettings() {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = installer.label,
-                                style = COUITheme.textStyles.body1,
+                                style = MiuixTheme.textStyles.body1,
                             )
                             Text(
                                 text = installer.packageName,
-                                style = COUITheme.textStyles.footnote1,
-                                color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                                style = MiuixTheme.textStyles.footnote1,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
                         }
                         if (isSelected) {
                             Icon(
                                 imageVector = Icons.Outlined.Check,
                                 contentDescription = "Selected",
-                                tint = COUITheme.colorScheme.primary,
+                                tint = MiuixTheme.colorScheme.primary,
                             )
                         }
                     }
@@ -442,8 +442,8 @@ fun InstallationSettings() {
                 // Custom package input
                 Text(
                     text = stringResource(R.string.settings_third_party_installer_custom),
-                    style = COUITheme.textStyles.body2,
-                    color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                 )
                 TextField(
@@ -458,8 +458,8 @@ fun InstallationSettings() {
                 if (isCustomError) {
                     Text(
                         text = stringResource(R.string.settings_third_party_installer_invalid_pkg),
-                        color = COUITheme.colorScheme.error,
-                        style = COUITheme.textStyles.footnote1,
+                        color = MiuixTheme.colorScheme.error,
+                        style = MiuixTheme.textStyles.footnote1,
                         modifier = Modifier.padding(top = 4.dp, start = 8.dp),
                     )
                 }
@@ -619,13 +619,13 @@ fun AppearanceSettings() {
                                 context.dataStore.edit { it[ThemeConfig.BG_IMAGE_URI] = "" }
                             }
                         }
-                        .background(COUITheme.colorScheme.error.copy(alpha = 0.1f))
+                        .background(MiuixTheme.colorScheme.error.copy(alpha = 0.1f))
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
                         text = stringResource(R.string.settings_clear),
-                        color = COUITheme.colorScheme.error,
-                        style = COUITheme.textStyles.body2
+                        color = MiuixTheme.colorScheme.error,
+                        style = MiuixTheme.textStyles.body2
                     )
                 }
             }
@@ -647,19 +647,19 @@ fun AppearanceSettings() {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(R.string.settings_card_background_alpha),
-                    style = COUITheme.textStyles.body1,
-                    color = COUITheme.colorScheme.onSurface
+                    style = MiuixTheme.textStyles.body1,
+                    color = MiuixTheme.colorScheme.onSurface
                 )
                 Text(
                     text = stringResource(R.string.settings_card_background_alpha_summary),
-                    style = COUITheme.textStyles.body2,
-                    color = COUITheme.colorScheme.onSurfaceVariantSummary
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                 )
             }
             Text(
                 text = "${cardBackgroundAlphaSlider.roundToInt()}%",
-                style = COUITheme.textStyles.body2,
-                color = COUITheme.colorScheme.onSurfaceVariantSummary
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
             )
         }
         Slider(
@@ -688,8 +688,8 @@ fun AppearanceSettings() {
         Column {
             Text(
                 text = stringResource(R.string.settings_builtin_theme_color),
-                style = COUITheme.textStyles.body2,
-                color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
             )
             Row(
@@ -741,8 +741,8 @@ fun AppearanceSettings() {
                         }
                         Text(
                             text = colorName,
-                            style = COUITheme.textStyles.footnote1,
-                            color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             textAlign = TextAlign.Center,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
@@ -764,7 +764,7 @@ private fun SettingsStartIcon(imageVector: ImageVector) {
             imageVector = imageVector,
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
-            tint = COUITheme.colorScheme.onBackground
+            tint = MiuixTheme.colorScheme.onBackground
         )
     }
 }
@@ -951,8 +951,8 @@ private fun KeyStore() {
                 Text(
                     modifier = Modifier.padding(bottom = 8.dp),
                     text = wrongText ?: stringResource(R.string.settings_keystore_desc),
-                    color = if (wrongText != null) COUITheme.colorScheme.error else COUITheme.colorScheme.onSurfaceVariantSummary,
-                    style = COUITheme.textStyles.body2,
+                    color = if (wrongText != null) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    style = MiuixTheme.textStyles.body2,
                     textAlign = TextAlign.Center
                 )
 

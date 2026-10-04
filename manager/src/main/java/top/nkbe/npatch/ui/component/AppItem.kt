@@ -16,14 +16,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.suqi8.coui.kmp.basic.Card
-import io.github.suqi8.coui.kmp.basic.CardColors
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Surface
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardColors
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Surface
 import top.nkbe.npatch.ui.util.backgroundAwareCardColors
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.theme.COUITheme
-import io.github.suqi8.coui.kmp.utils.PressFeedbackType
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
 @Composable
 fun AppItem(
@@ -43,7 +43,7 @@ fun AppItem(
     onLongPress: () -> Unit = {}
 ) {
     var descriptionExpanded by remember { mutableStateOf(false) }
-    val colorScheme = COUITheme.colorScheme
+    val colorScheme = MiuixTheme.colorScheme
 
     Card(
         modifier = modifier

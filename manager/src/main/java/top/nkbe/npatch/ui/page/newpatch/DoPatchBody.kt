@@ -52,21 +52,21 @@ import top.nkbe.npatch.ui.util.lastItemIndex
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel.PatchState
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel.ViewAction
-import io.github.suqi8.coui.kmp.basic.ButtonDefaults
-import io.github.suqi8.coui.kmp.basic.Card
-import io.github.suqi8.coui.kmp.basic.CircularProgressIndicator
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.SmallTitle
-import io.github.suqi8.coui.kmp.basic.SnackbarResult
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.layout.DialogButtonBar
-import io.github.suqi8.coui.kmp.layout.DialogButtonBarAction
-import io.github.suqi8.coui.kmp.overlay.OverlayDialog
-import io.github.suqi8.coui.kmp.overlay.OverlayLoadingDialog
-import io.github.suqi8.coui.kmp.theme.COUITheme
-import io.github.suqi8.coui.kmp.utils.overScrollVertical
-import io.github.suqi8.coui.kmp.utils.scrollEndHaptic
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.SnackbarResult
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.nkbe.npatch.ui.component.DialogButtonBar
+import top.nkbe.npatch.ui.component.DialogButtonBarAction
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.nkbe.npatch.ui.component.OverlayLoadingDialog
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 private const val TAG = "NewPatchPage"
 
@@ -113,7 +113,7 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                             Icons.Outlined.CheckCircle else Icons.Outlined.ErrorOutline,
                         contentDescription = null,
                         tint = if (viewModel.patchState == PatchState.FINISHED)
-                            COUITheme.colorScheme.primary else COUITheme.colorScheme.error,
+                            MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.error,
                         modifier = Modifier.size(32.dp)
                     )
                     Column {
@@ -122,12 +122,12 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                                 stringResource(R.string.patch_start) + " ✓"
                             else
                                 stringResource(R.string.copy_error),
-                            style = COUITheme.textStyles.headline1,
+                            style = MiuixTheme.textStyles.headline1,
                         )
                         Text(
                             text = viewModel.patchApp.app.packageName,
-                            style = COUITheme.textStyles.body2,
-                            color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
                     }
                 }
@@ -144,7 +144,7 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 12.dp),
-                colors = backgroundAwareCardColors(COUITheme.colorScheme.surfaceVariant),
+                colors = backgroundAwareCardColors(MiuixTheme.colorScheme.surfaceVariant),
             ) {
                 Row(
                     modifier = Modifier
@@ -157,12 +157,12 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                     Column {
                         Text(
                             text = stringResource(R.string.patch_start) + "…",
-                            style = COUITheme.textStyles.headline1,
+                            style = MiuixTheme.textStyles.headline1,
                         )
                         Text(
                             text = viewModel.patchApp.app.packageName,
-                            style = COUITheme.textStyles.body2,
-                            color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
                     }
                 }
@@ -190,7 +190,7 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
             colors = backgroundAwareCardColors(),
         ) {
             ShimmerAnimation(enabled = viewModel.patchState == PatchState.PATCHING) {
-                ProvideTextStyle(COUITheme.textStyles.footnote1.copy(fontFamily = FontFamily.Monospace)) {
+                ProvideTextStyle(MiuixTheme.textStyles.footnote1.copy(fontFamily = FontFamily.Monospace)) {
                     val scrollState = rememberLazyListState()
                     LazyColumn(
                         state = scrollState,
@@ -213,7 +213,7 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                                 )
                                 Log.ERROR -> Text(
                                     text = line,
-                                    color = COUITheme.colorScheme.error,
+                                    color = MiuixTheme.colorScheme.error,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 4.dp)
@@ -223,8 +223,9 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                     }
 
                     LaunchedEffect(scrollState.lastItemIndex) {
-                        if (scrollState.lastItemIndex != null && !scrollState.isScrolledToEnd) {
-                            scrollState.animateScrollToItem(scrollState.lastItemIndex!!)
+                        val last = scrollState.lastItemIndex
+                        if (last != null && !scrollState.isScrolledToEnd) {
+                            scrollState.animateScrollToItem(last)
                         }
                     }
                 }

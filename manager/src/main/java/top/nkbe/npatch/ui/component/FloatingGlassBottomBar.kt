@@ -72,7 +72,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastCoerceIn
 import androidx.compose.ui.util.fastRoundToInt
 import androidx.compose.ui.util.lerp
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import top.nkbe.npatch.ui.component.liquid.InnerShadow
@@ -114,9 +114,9 @@ class FloatingBottomBarColors(
 object FloatingBottomBarDefaults {
     @Composable
     fun colors(
-        containerColor: Color = COUITheme.colorScheme.surfaceContainer,
-        indicatorColor: Color = COUITheme.colorScheme.primary,
-        contentColor: Color = COUITheme.colorScheme.onSurface,
+        containerColor: Color = MiuixTheme.colorScheme.surfaceContainer,
+        indicatorColor: Color = MiuixTheme.colorScheme.primary,
+        contentColor: Color = MiuixTheme.colorScheme.onSurface,
         activeContentColor: Color = indicatorColor
     ): FloatingBottomBarColors = FloatingBottomBarColors(
         containerColor = containerColor,
@@ -691,11 +691,11 @@ fun FloatingGlassBottomBarIcon(
     val tint = if (localColor != Color.Unspecified) {
         localColor
     } else if (selected) {
-        COUITheme.colorScheme.primary
+        MiuixTheme.colorScheme.primary
     } else {
-        COUITheme.colorScheme.onSurfaceVariantSummary
+        MiuixTheme.colorScheme.onSurfaceVariantSummary
     }
-    io.github.suqi8.coui.kmp.basic.Icon(
+    top.yukonga.miuix.kmp.basic.Icon(
         imageVector = imageVector,
         contentDescription = contentDescription,
         tint = tint
@@ -712,11 +712,11 @@ fun FloatingGlassBottomBarIcon(
     val tint = if (localColor != Color.Unspecified) {
         localColor
     } else if (selected) {
-        COUITheme.colorScheme.primary
+        MiuixTheme.colorScheme.primary
     } else {
-        COUITheme.colorScheme.onSurfaceVariantSummary
+        MiuixTheme.colorScheme.onSurfaceVariantSummary
     }
-    io.github.suqi8.coui.kmp.basic.Icon(
+    top.yukonga.miuix.kmp.basic.Icon(
         imageVector = if (selected) selectedIcon else unselectedIcon,
         contentDescription = null,
         tint = tint
@@ -732,11 +732,11 @@ fun FloatingGlassBottomBarLabel(
     val textColor = if (localColor != Color.Unspecified) {
         localColor
     } else if (selected) {
-        COUITheme.colorScheme.primary
+        MiuixTheme.colorScheme.primary
     } else {
-        COUITheme.colorScheme.onSurfaceVariantSummary
+        MiuixTheme.colorScheme.onSurfaceVariantSummary
     }
-    io.github.suqi8.coui.kmp.basic.Text(
+    top.yukonga.miuix.kmp.basic.Text(
         text = label,
         fontSize = 11.sp,
         lineHeight = 14.sp,

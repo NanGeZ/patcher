@@ -97,7 +97,7 @@ class ShizukuService : INPatchShizukuService.Stub() {
                 }
                 if (timeoutResult == null) {
                     val uninstalled = runCatching {
-                        iPackageManager.getApplicationInfo(packageName, 0L, userId) == null
+                        getApplicationInfoCompat(packageName, userId) == null
                     }.getOrDefault(false)
                     if (uninstalled) {
                         return@runCatching Intent().apply {
@@ -200,6 +200,16 @@ class ShizukuService : INPatchShizukuService.Stub() {
         return Refine.unsafeCast(PackageInstallerHidden.SessionHidden(iSession))
     }
 
+    // API 33 起 flags 改為 long，舊系統只有 int 版本
+    private fun getApplicationInfoCompat(packageName: String, userId: Int): Any? =
+        try {
+            iPackageManager.getApplicationInfo(packageName, 0L, userId)
+        } catch (_: NoSuchMethodError) {
+            iPackageManager.javaClass.getMethod(
+                "getApplicationInfo", String::class.java, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType
+            ).invoke(iPackageManager, packageName, 0, userId)
+        }
+
     private suspend fun commit(session: PackageInstaller.Session, packageName: String, userId: Int): Intent {
         var result: Intent? = null
         val timeoutResult = withTimeoutOrNull(30_000L) {
@@ -218,7 +228,7 @@ class ShizukuService : INPatchShizukuService.Stub() {
                 ).waitFor()
             }
             val installed = runCatching {
-                iPackageManager.getApplicationInfo(packageName, 0L, userId) != null
+                getApplicationInfoCompat(packageName, userId) != null
             }.getOrDefault(false)
             if (installed) {
                 return Intent().apply {

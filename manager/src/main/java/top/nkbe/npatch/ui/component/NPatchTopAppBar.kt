@@ -14,24 +14,21 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.blur.HazeBlurStyle
 import dev.chrisbanes.haze.blur.blurEffect
 import dev.chrisbanes.haze.hazeEffect
-import io.github.suqi8.coui.kmp.basic.ScrollBehavior
-import io.github.suqi8.coui.kmp.basic.TopAppBar
-import io.github.suqi8.coui.kmp.basic.TopAppBarDefaults
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.ScrollBehavior
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun NPatchTopAppBar(
     title: String,
     modifier: Modifier = Modifier,
     color: Color = Color.Transparent,
-    titleColor: Color = COUITheme.colorScheme.onSurface,
+    titleColor: Color = MiuixTheme.colorScheme.onSurface,
     largeTitle: String = title,
-    largeTitleColor: Color = COUITheme.colorScheme.onSurface,
+    largeTitleColor: Color = MiuixTheme.colorScheme.onSurface,
     subtitle: String = "",
-    subtitleColor: Color = COUITheme.colorScheme.onSurfaceVariantSummary,
-    dividerColor: Color = Color.Transparent,
-    showDivider: Boolean = false,
-    hideSubtitleOnCollapse: Boolean = false,
+    subtitleColor: Color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
     scrollBehavior: ScrollBehavior? = null,
@@ -72,9 +69,6 @@ fun NPatchTopAppBar(
             largeTitleColor = largeTitleColor,
             subtitle = subtitle,
             subtitleColor = subtitleColor,
-            dividerColor = dividerColor,
-            showDivider = showDivider,
-            hideSubtitleOnCollapse = hideSubtitleOnCollapse,
             navigationIcon = navigationIcon,
             actions = actions,
             scrollBehavior = scrollBehavior,

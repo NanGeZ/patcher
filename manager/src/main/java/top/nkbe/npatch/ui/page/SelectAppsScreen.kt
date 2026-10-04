@@ -51,19 +51,19 @@ import top.nkbe.npatch.ui.component.NPatchTopAppBar
 import top.nkbe.npatch.ui.util.backgroundAwareHazeStyle
 import top.nkbe.npatch.ui.viewmodel.SelectAppsViewModel
 import androidx.compose.ui.state.ToggleableState
-import io.github.suqi8.coui.kmp.basic.Checkbox
+import top.yukonga.miuix.kmp.basic.Checkbox
 import dev.chrisbanes.haze.rememberHazeState
-import io.github.suqi8.coui.kmp.basic.FloatingActionButton
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconButton
-import io.github.suqi8.coui.kmp.basic.COUIScrollBehavior
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.rememberPullToRefreshState
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Back
-import io.github.suqi8.coui.kmp.theme.COUITheme
-import io.github.suqi8.coui.kmp.utils.overScrollVertical
-import io.github.suqi8.coui.kmp.utils.scrollEndHaptic
+import top.yukonga.miuix.kmp.basic.FloatingActionButton
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 @Parcelize
 sealed class SelectAppsResult : Parcelable {
@@ -94,7 +94,7 @@ fun SelectAppsScreen(
     val hazeState = rememberHazeState()
     val hazeStyle = backgroundAwareHazeStyle()
 
-    val scrollBehavior = COUIScrollBehavior()
+    val scrollBehavior = MiuixScrollBehavior()
     val dynamicTopPadding by remember {
         derivedStateOf { 12.dp * (1f - scrollBehavior.state.collapsedFraction) }
     }
@@ -134,9 +134,9 @@ fun SelectAppsScreen(
                                 modifier = Modifier.graphicsLayer {
                                     if (layoutDirection == LayoutDirection.Rtl) scaleX = -1f
                                 },
-                                imageVector = COUIIcons.Back,
+                                imageVector = MiuixIcons.Back,
                                 contentDescription = null,
-                                tint = COUITheme.colorScheme.onSurface
+                                tint = MiuixTheme.colorScheme.onSurface
                             )
                         }
                     }
@@ -202,7 +202,7 @@ private fun MultiSelectFab(onClick: () -> Unit) {
         Icon(
             imageVector = Icons.Outlined.Done,
             contentDescription = null,
-            tint = COUITheme.colorScheme.onPrimary
+            tint = MiuixTheme.colorScheme.onPrimary
         )
     }
 }
@@ -285,7 +285,7 @@ private fun SelectAppsList(
                                 text = stringResource(R.string.patch_target_already_patched),
                                 fontSize = 12.sp,
                                 fontWeight = androidx.compose.ui.text.font.FontWeight(500),
-                                color = COUITheme.colorScheme.primary
+                                color = MiuixTheme.colorScheme.primary
                             )
                         }
                     } else null

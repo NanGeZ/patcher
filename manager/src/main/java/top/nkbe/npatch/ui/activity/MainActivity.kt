@@ -59,11 +59,11 @@ import android.os.Process
 import android.provider.Settings
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.res.stringResource
-import io.github.suqi8.coui.kmp.basic.SnackbarHostState
-import io.github.suqi8.coui.kmp.layout.DialogButtonBar
-import io.github.suqi8.coui.kmp.layout.DialogButtonBarAction
-import io.github.suqi8.coui.kmp.overlay.OverlayDialog
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
+import top.nkbe.npatch.ui.component.DialogButtonBar
+import top.nkbe.npatch.ui.component.DialogButtonBarAction
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import nkbe.util.NeoPackageManager
 import nkbe.util.ShizukuApi
 import top.nkbe.npatch.R
@@ -163,7 +163,7 @@ class MainActivity : ComponentActivity() {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .background(COUITheme.colorScheme.background)
+                                        .background(MiuixTheme.colorScheme.background)
                                 )
                             }
                         }

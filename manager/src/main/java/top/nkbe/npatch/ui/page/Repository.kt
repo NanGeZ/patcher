@@ -11,13 +11,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.rememberHazeState
-import io.github.suqi8.coui.kmp.basic.COUIScrollBehavior
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.theme.COUITheme
 import top.nkbe.npatch.R
 import top.nkbe.npatch.ui.component.NPatchScaffold
 import top.nkbe.npatch.ui.component.NPatchTopAppBar
 import top.nkbe.npatch.ui.page.Navigator
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
  * 倉庫頁面（佔位實現）
@@ -29,7 +29,7 @@ fun RepositoryScreen(
     navigator: Navigator,
 ) {
     val hazeState = rememberHazeState()
-    val scrollBehavior = COUIScrollBehavior()
+    val scrollBehavior = MiuixScrollBehavior()
 
     NPatchScaffold(
         topBar = {
@@ -53,8 +53,8 @@ fun RepositoryScreen(
             ) {
                 Text(
                     text = stringResource(R.string.list_empty),
-                    style = COUITheme.textStyles.body2,
-                    color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
             }
         }

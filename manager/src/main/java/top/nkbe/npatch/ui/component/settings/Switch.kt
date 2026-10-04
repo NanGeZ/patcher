@@ -14,7 +14,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
-import io.github.suqi8.coui.kmp.basic.Switch
+import top.yukonga.miuix.kmp.basic.Switch
 
 @Composable
 fun SettingsSwitch(

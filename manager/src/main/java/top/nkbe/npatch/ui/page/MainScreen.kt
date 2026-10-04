@@ -30,9 +30,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import io.github.suqi8.coui.kmp.basic.NavigationBar
-import io.github.suqi8.coui.kmp.basic.NavigationBarItem
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.NavigationBar
+import top.yukonga.miuix.kmp.basic.NavigationBarItem
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import org.lsposed.manager.ui.compose.repository.RepositoryScreen
@@ -82,7 +82,7 @@ fun MainScreen(
             }
         }
     }
-    val surfaceColor = COUITheme.colorScheme.surface
+    val surfaceColor = MiuixTheme.colorScheme.surface
     val backdrop = if (useFloatingGlassBottomBarBlur) {
         rememberLayerBackdrop {
             drawRect(surfaceColor)

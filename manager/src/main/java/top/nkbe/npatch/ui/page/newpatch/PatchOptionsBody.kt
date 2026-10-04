@@ -38,10 +38,10 @@ import top.nkbe.npatch.ui.component.settings.SettingsEditor
 import top.nkbe.npatch.ui.util.backgroundAwareCardColors
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel.ViewAction
-import io.github.suqi8.coui.kmp.basic.*
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.*
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun ConfiguringTopBar(scrollBehavior: ScrollBehavior, onBackClick: () -> Unit) {
@@ -75,11 +75,11 @@ fun ConfiguringFab() {
             Icon(
                 imageVector = Icons.Outlined.AutoFixHigh,
                 contentDescription = null,
-                tint = COUITheme.colorScheme.onPrimary
+                tint = MiuixTheme.colorScheme.onPrimary
             )
             Text(
                 text = patchStartText,
-                color = COUITheme.colorScheme.onPrimary
+                color = MiuixTheme.colorScheme.onPrimary
             )
         }
     }
@@ -133,11 +133,11 @@ fun PatchOptionsBody(modifier: Modifier, onAddEmbed: () -> Unit) {
             colors = backgroundAwareCardColors(),
         ) {
             Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
-                Text(text = viewModel.patchApp.label, style = COUITheme.textStyles.headline1)
+                Text(text = viewModel.patchApp.label, style = MiuixTheme.textStyles.headline1)
                 Text(
                     text = viewModel.patchApp.app.packageName,
-                    style = COUITheme.textStyles.body2,
-                    color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
             }
         }
@@ -178,8 +178,8 @@ fun PatchOptionsBody(modifier: Modifier, onAddEmbed: () -> Unit) {
                             modifier = Modifier
                                 .padding(top = 8.dp)
                                 .clickable(onClick = onAddEmbed),
-                            color = COUITheme.colorScheme.primary,
-                            style = COUITheme.textStyles.body2
+                            color = MiuixTheme.colorScheme.primary,
+                            style = MiuixTheme.textStyles.body2
                         )
                     }
                 )
@@ -204,12 +204,12 @@ fun PatchOptionsBody(modifier: Modifier, onAddEmbed: () -> Unit) {
                     Icon(
                         imageVector = Icons.Outlined.Info,
                         contentDescription = null,
-                        tint = COUITheme.colorScheme.primary
+                        tint = MiuixTheme.colorScheme.primary
                     )
                     Text(
                         text = stringResource(R.string.patch_subprocess_detected_hint, viewModel.subProcessCount),
-                        style = COUITheme.textStyles.body2,
-                        color = COUITheme.colorScheme.onSurfaceVariantSummary
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                     )
                 }
             }
@@ -332,14 +332,14 @@ fun PatchOptionsBody(modifier: Modifier, onAddEmbed: () -> Unit) {
                     Icon(
                         imageVector = Icons.Outlined.Tune,
                         contentDescription = null,
-                        tint = COUITheme.colorScheme.primary,
+                        tint = MiuixTheme.colorScheme.primary,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
                             text = stringResource(R.string.patch_more_options),
-                            style = COUITheme.textStyles.headline2,
+                            style = MiuixTheme.textStyles.headline2,
                         )
                         if (!moreOptionsExpanded && activeChips.isNotEmpty()) {
                             Spacer(Modifier.height(6.dp))
@@ -352,7 +352,7 @@ fun PatchOptionsBody(modifier: Modifier, onAddEmbed: () -> Unit) {
                                 activeChips.forEach { (label, icon) ->
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
-                                        color = COUITheme.colorScheme.primary.copy(alpha = 0.1f),
+                                        color = MiuixTheme.colorScheme.primary.copy(alpha = 0.1f),
                                     ) {
                                         Row(
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
@@ -363,12 +363,12 @@ fun PatchOptionsBody(modifier: Modifier, onAddEmbed: () -> Unit) {
                                                 imageVector = icon,
                                                 contentDescription = null,
                                                 modifier = Modifier.size(12.dp),
-                                                tint = COUITheme.colorScheme.primary
+                                                tint = MiuixTheme.colorScheme.primary
                                             )
                                             Text(
                                                 text = label,
-                                                style = COUITheme.textStyles.footnote1,
-                                                color = COUITheme.colorScheme.primary
+                                                style = MiuixTheme.textStyles.footnote1,
+                                                color = MiuixTheme.colorScheme.primary
                                             )
                                         }
                                     }
@@ -379,7 +379,7 @@ fun PatchOptionsBody(modifier: Modifier, onAddEmbed: () -> Unit) {
                     Icon(
                         imageVector = Icons.Outlined.ExpandMore,
                         contentDescription = null,
-                        tint = COUITheme.colorScheme.onSurfaceVariantSummary,
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         modifier = Modifier.rotate(chevronRotation)
                     )
                 }

@@ -30,13 +30,13 @@ import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel.PatchState
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel.ViewAction
 import top.nkbe.npatch.ui.page.SelectAppsResult
-import io.github.suqi8.coui.kmp.basic.COUIScrollBehavior
-import io.github.suqi8.coui.kmp.basic.InfiniteProgressIndicator
-import io.github.suqi8.coui.kmp.layout.DialogButtonBar
-import io.github.suqi8.coui.kmp.layout.DialogButtonBarAction
-import io.github.suqi8.coui.kmp.overlay.OverlayDialog
-import io.github.suqi8.coui.kmp.overlay.OverlayLoadingDialog
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.nkbe.npatch.ui.component.DialogButtonBar
+import top.nkbe.npatch.ui.component.DialogButtonBarAction
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.nkbe.npatch.ui.component.OverlayLoadingDialog
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 const val ACTION_STORAGE = 0
 const val ACTION_APPLIST = 1
@@ -50,7 +50,7 @@ fun NewPatchScreen(
     val navigator = LocalNavigator.current
     val viewModel = viewModel<NewPatchViewModel>()
     val snackbarHost = LocalSnackbarHost.current
-    val scrollBehavior = COUIScrollBehavior()
+    val scrollBehavior = MiuixScrollBehavior()
     val context = LocalContext.current
     val activityScope = (context as ComponentActivity).lifecycleScope
     val scope = rememberCoroutineScope()
@@ -227,8 +227,8 @@ fun NewPatchScreen(
                             Spacer(Modifier.height(16.dp))
                             Text(
                                 text = stringResource(R.string.manage_loading),
-                                style = COUITheme.textStyles.body2,
-                                color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
                         }
                     }

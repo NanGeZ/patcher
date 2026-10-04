@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.tooling.preview.Preview
-import io.github.suqi8.coui.kmp.overlay.OverlayLoadingDialog
 
 @Composable
 fun LoadingDialog(

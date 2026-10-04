@@ -17,11 +17,11 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.icon.COUIIcons
-import io.github.suqi8.coui.kmp.icon.extended.Ok
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Ok
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun AccessibleMenuItem(
@@ -54,24 +54,24 @@ fun AccessibleMenuItem(
         ) {
             Text(
                 text = text,
-                style = COUITheme.textStyles.body1,
-                color = COUITheme.colorScheme.onSurface
+                style = MiuixTheme.textStyles.body1,
+                color = MiuixTheme.colorScheme.onSurface
             )
             if (!summary.isNullOrEmpty()) {
                 Text(
                     text = summary,
-                    style = COUITheme.textStyles.body2,
-                    color = COUITheme.colorScheme.onSurfaceVariantSummary
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                 )
             }
         }
 
         if (selected == true) {
             Icon(
-                imageVector = COUIIcons.Regular.Ok,
+                imageVector = MiuixIcons.Regular.Ok,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
-                tint = COUITheme.colorScheme.primary
+                tint = MiuixTheme.colorScheme.primary
             )
         }
     }
