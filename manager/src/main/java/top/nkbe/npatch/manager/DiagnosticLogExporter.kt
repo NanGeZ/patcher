@@ -5,6 +5,7 @@ import android.os.Environment
 import androidx.core.content.pm.PackageInfoCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import nkbe.util.ShizukuApi
 import java.io.File
 import java.io.RandomAccessFile
 import java.nio.charset.StandardCharsets
@@ -58,12 +59,33 @@ object DiagnosticLogExporter {
                 totalLogBytes += result.bytes
                 errors += result.errors
 
+                val logcatDump = captureLogcatViaShizuku(targetPackageName)
+                if (logcatDump != null) {
+                    zip.putText("app/${safeSegment(targetPackageName)}/logcat.log", logcatDump)
+                    collectedFiles++
+                    totalLogBytes += logcatDump.toByteArray(StandardCharsets.UTF_8).size
+                }
+
                 zip.putText(
                     "collection-report.txt",
                     buildString {
                         appendLine("Collected log files: $collectedFiles")
                         appendLine("Skipped log files: $skippedFiles")
                         appendLine("Collected log bytes: $totalLogBytes")
+                        if (logcatDump != null) {
+                            appendLine("Included system logcat via Shizuku: Yes")
+                        } else {
+                            appendLine("Included system logcat via Shizuku: No (Shizuku not ready or process capture skipped)")
+                        }
+                        if (collectedFiles == 0) {
+                            appendLine()
+                            appendLine("Notice:")
+                            appendLine("No log files were found in /sdcard/Android/media/$targetPackageName/npatch/log/.")
+                            appendLine("Possible reasons:")
+                            appendLine("1. The app has not been launched yet.")
+                            appendLine("2. The app crashed before NPatch loader initialized (e.g., manifest/signature parse error or native crash).")
+                            appendLine("3. 'Output Log to Media Directory' was disabled during patching.")
+                        }
                         if (errors.isNotEmpty()) {
                             appendLine()
                             appendLine("Collection warnings:")
@@ -185,6 +207,10 @@ object DiagnosticLogExporter {
         .replace(safeSegmentPattern, "_")
         .trim('.')
         .ifEmpty { "unknown" }
+
+    private suspend fun captureLogcatViaShizuku(targetPackageName: String): String? {
+        return ShizukuApi.dumpLogcat(targetPackageName, 5000)
+    }
 
     private fun utcFormat(pattern: String) = SimpleDateFormat(pattern, Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC")

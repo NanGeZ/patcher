@@ -9,4 +9,5 @@ interface INPatchShizukuService {
     boolean performDexOptMode(String packageName, int userId) = 3;
     void destroy() = 4;
     void startManagerService(String packageName) = 5;
+    String dumpLogcat(String packageName, int maxLines) = 6;
 }

@@ -491,4 +491,11 @@ object ShizukuApi {
             Log.w(TAG, "Failed to start manager service via Shizuku user service", it)
         }
     }
+
+    suspend fun dumpLogcat(packageName: String, maxLines: Int = 5000): String? {
+        if (!isReady) return null
+        return runCatching {
+            getUserService().dumpLogcat(packageName, maxLines)
+        }.getOrNull()
+    }
 }

@@ -156,6 +156,32 @@ class ShizukuService : INPatchShizukuService.Stub() {
         }
     }
 
+    override fun dumpLogcat(packageName: String, maxLines: Int): String? {
+        return runCatching {
+            val limit = if (maxLines in 1..20000) maxLines else 5000
+            val process = Runtime.getRuntime().exec(
+                arrayOf("logcat", "-d", "-v", "threadtime", "-t", limit.toString())
+            )
+            val lines = mutableListOf<String>()
+            process.inputStream.bufferedReader(java.nio.charset.StandardCharsets.UTF_8).use { reader ->
+                var line = reader.readLine()
+                while (line != null) {
+                    if (packageName.isBlank() ||
+                        line.contains(packageName) ||
+                        line.contains("NPatch") ||
+                        line.contains("AndroidRuntime") ||
+                        line.contains("DEBUG")
+                    ) {
+                        lines.add(line)
+                    }
+                    line = reader.readLine()
+                }
+            }
+            process.waitFor()
+            if (lines.isEmpty()) null else lines.joinToString("\n")
+        }.getOrNull()
+    }
+
     private fun packageInstaller(userId: Int): PackageInstaller {
         return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             Refine.unsafeCast(PackageInstallerHidden(iPackageInstaller, "com.android.shell", null, userId))
