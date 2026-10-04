@@ -1,35 +1,21 @@
-// EXTREME-tier signature bypass: redirect a raw, hand-written `svc #0` syscall instead of
-// requiring the app to go through a libc symbol every other sigbypass layer can hook.
+// Raw-`svc` APK-read redirect: the EXTREME-tier answer to a packer that reads its own installed
+// base.apk through a hand-written inline `svc #0` instead of calling libc. Every other sigbypass
+// layer (Java IO hooks, the libc openat inline hook, the xhook GOT rewrite) only sees a call to a
+// libc *symbol*; an inline syscall traps straight into the kernel with nothing to intercept. This
+// instruments the `svc` instruction itself, via Dobby, and rewrites the pathname register before
+// the kernel runs the syscall -- exactly as the openat hook does for the libc path.
 //
-// Every layer below this one -- hookJavaIO/hookJavaFilePathAccessors (Java), the inline libc
-// hooks (openat/open/stat/...), and the xhook GOT/PLT rewrite (Stealth) -- only sees a call to
-// *openat* if the app actually calls the libc function named `openat`. A packer or anti-tamper
-// routine that instead emits `svc #0` directly (syscall number in x8, args in x0-x5, AArch64
-// Linux ABI) with its own inline assembly bypasses all of them in one step: there is no libc
-// call, no GOT entry, nothing to intercept before the instruction traps into the kernel.
+// Ported from JingMatrix/LSPatch's signature-bypass "Level 3"
+// The two safeguards that make it safe are carried over:
+//   * SCOPE: only libraries mapped under the app's own install dir are scanned. libc/libart/the
+//     linker/app_process -- and our own libnpatch/libdobby -- are never touched. Instrumenting
+//     libc's futex/read/... `svc` would route every syscall in the process through the handler and
+//     crash a thread parked in futex; the earlier over-broad scan did exactly that.
+//   * NEAR-BRANCH: dobby_enable_near_branch_trampoline keeps every patch 4 bytes wide, so writing
+//     over a tiny `svc; ret` wrapper cannot overrun into -- and corrupt -- the next function.
 //
-// This mirrors what upstream JingMatrix/LSPatch calls its signature-bypass Level 3: scan the
-// executable segments of the images the *app itself* loaded for the `svc #0` encoding, and use
-// Dobby's instruction instrumentation (already a transitive dependency of this target via
-// core/native -> dobby_static, so this adds no new third-party library) to run a callback
-// immediately before each one, with full access to the pending syscall's registers. If it's
-// openat/openat2 reading the APK path we care about, the callback rewrites the pathname register
-// before the instruction executes.
-//
-// Two scope rules keep this from touching code it must not. (1) Only images under /data (the
-// app's own .so, a packer's decrypted secondary .so) are scanned -- never libc/libart/the
-// linker/app_process, which hold only the normal syscall thunks (futex, read, poll, nanosleep).
-// (2) Within those, a site is instrumented only when the nearest preceding `MOVZ x8,#nr` proves
-// it issues openat/openat2. Both exist because the danger is not handle_svc (it already ignores
-// non-openat at runtime) but Dobby's trampoline wrapping a hot, blocking, signal-restartable
-// syscall: a thread parked in futex that traps through it returns with a corrupted register
-// context and SIGSEGVs. JM's Level 3 scopes to "the app's own code" for the same reason.
-//
-// This does NOT replace the openat/GOT hooks: those remain the broad-coverage path for the
-// overwhelming majority of real-world code, which does call into libc. This is narrowly scoped to
-// the specific code a packer deliberately hand-wrote to dodge hooking -- and by the same token,
-// since it is new code appended at a handful of specific addresses, a self-checksumming packer
-// can in principle notice the patched bytes. Opt-in, arm64-only, matching JM's own tradeoff.
+// Within scope every `svc #0` is instrumented and svcHandler discriminates at runtime on x8, so a
+// data word that merely equals the `svc` encoding is harmless unless executed. opt-in, arm64 only.
 #include "svc_bypass.h"
 
 #include "common/logging.h"
@@ -37,18 +23,16 @@
 #include "utils/jni_helper.hpp"
 
 #include "dobby.h"
+#include "sig_bypass_paths.h"
 
-#include <atomic>
-#include <cerrno>
 #include <cstdint>
 #include <cstring>
-#include <dlfcn.h>
-#include <elf.h>
-#include <limits.h>
 #include <link.h>
 #include <mutex>
+#include <set>
+#include <string>
+#include <string_view>
 #include <sys/syscall.h>
-#include <vector>
 
 namespace lspd {
 
@@ -56,242 +40,197 @@ namespace lspd {
 
     namespace {
 
-        // AArch64 encoding of "svc #0" -- the only immediate Linux's syscall ABI ever uses; iOS'
-        // Dobby sample plugin (core/external/dobby/builtin-plugin/SupervisorCallMonitor) looks for
-        // "svc #0x80" instead (0xd4001001), which is the Darwin convention and never appears in
-        // code generated for Android, so that plugin's constant would never match anything here.
-        constexpr uint32_t kSvcInstruction = 0xd4000001u;
+        // Set once (under g_svc_mutex) before any instrumentation and never reassigned, so the
+        // c_str()/size() svcHandler reads on arbitrary threads stay valid for the process lifetime.
+        std::string g_target_path;     // the installed base.apk whose reads we catch
+        std::string g_redirect_path;   // the original signed apk to serve instead
+        std::string g_app_dir_prefix;  // install dir of g_target_path -- the scan scope
 
-        // Matches `MOVZ (w8|x8), #imm16` with no shift: fixed opcode bits [30:23]=0xA5 and hw=0
-        // and Rd=8, leaving sf([31]) and imm16([20:5]) free. Both a hand-written anti-tamper stub
-        // and every libc syscall thunk load the syscall number into x8 with exactly this
-        // instruction right before `svc #0`, so the imm16 it carries is the syscall number.
-        constexpr uint32_t kMovzX8Mask = 0x7FE0001Fu;
-        constexpr uint32_t kMovzX8Value = 0x52800008u;
+        std::mutex g_svc_mutex;              // guards g_instrumented and one-time dlopen hooking
+        std::set<uintptr_t> g_instrumented;  // svc sites already handed to Dobby, to dedup rescans
 
-        std::mutex g_svc_mutex;
-        char g_target_path[PATH_MAX] = {0};
-        char g_redirect_path[PATH_MAX] = {0};
-        std::atomic<bool> g_svc_armed{false};
+        constexpr uint32_t kSvc0 = 0xd4000001u;  // `svc #0` on arm64
 
-        // Addresses DobbyInstrument has already been called on, so a rescan triggered by a later
-        // dlopen never re-instruments a site a previous scan already covered.
-        std::vector<uintptr_t> g_patched_addrs;
+        // The NDK sysroot may predate openat2; its arm64 number is fixed at 437 (asm-generic).
+#ifndef __NR_openat2
+#define __NR_openat2 437
+#endif
 
-        bool is_already_patched_locked(uintptr_t addr) {
-            for (uintptr_t patched : g_patched_addrs) {
-                if (patched == addr) return true;
+        bool isPathSyscall(long nr) {
+            switch (nr) {
+                case __NR_openat:
+                case __NR_openat2:
+                    return true;
+                default:
+                    return false;
             }
-            return false;
         }
 
-        // Same "exact path, or the same path plus a ' (deleted)' suffix" comparison bypass_sig.cpp
-        // and seccompv.cpp each already carry their own copy of, for a once-renamed/unlinked APK.
-        bool path_matches_target(const char* pathname) {
-            if (pathname == nullptr || g_target_path[0] == '\0') {
-                return false;
-            }
-            if (strcmp(pathname, g_target_path) == 0) {
-                return true;
-            }
-            size_t target_len = strlen(g_target_path);
-            return strncmp(pathname, g_target_path, target_len) == 0
-                   && strcmp(pathname + target_len, " (deleted)") == 0;
+        // Exact match, or the same path plus a trailing " (deleted)" (a once-unlinked apk) -- the
+        // same comparison bypass_sig.cpp/seccompv.cpp use (see sig_bypass_paths.h). A bounded
+        // compare only: the handler must issue no syscall, or it would re-enter through its own
+        // instrumentation.
+        bool path_matches_target(const char* path) {
+            if (g_target_path.empty()) return false;
+            return PathMatchesTarget(path, g_target_path.c_str(), g_target_path.size());
         }
 
-        // Runs on whatever thread executes a patched svc instruction. Only openat/openat2 sites
-        // are ever instrumented (see svc_site_targets_openat), so in practice nr is already one
-        // of those; the runtime check is kept as cheap defense in case a gated site ever issues
-        // something else. Must stay allocation-free and lock-free: g_target_path/g_redirect_path
-        // are fixed-size buffers
-        // written once (under g_svc_mutex) before any instrumentation is installed and never
-        // mutated again for the lifetime of the process, so reading them here without the lock is
-        // the same accepted pattern seccompv.cpp's sigsys_handler already relies on.
-        void handle_svc(void* /*address*/, DobbyRegisterContext* ctx) {
+        // Runs just before an instrumented `svc` executes. Every in-scope svc is instrumented, so
+        // this is the sole discriminator: unless it is openat/openat2 opening our apk, do nothing.
+        // No logging here: this fires on every openat/openat2 in scope, not just redirected ones in
+        // practice (any app code that opens files at all keeps re-entering this check), so a log
+        // line per call would mean real I/O (liblog) on a hot path for no diagnostic benefit beyond
+        // the one-time "armed" log in enable_svc_redirect_impl.
+        void svcHandler(void* /*address*/, DobbyRegisterContext* ctx) {
             long nr = static_cast<long>(ctx->general.regs.x8);
-            if (nr != __NR_openat
-#if defined(__NR_openat2)
-                && nr != __NR_openat2
-#endif
-            ) {
-                return;
-            }
-            auto* pathname = reinterpret_cast<const char*>(ctx->general.regs.x1);
-            if (!path_matches_target(pathname)) {
-                return;
-            }
-            ctx->general.regs.x1 = reinterpret_cast<uint64_t>(g_redirect_path);
+            if (!isPathSyscall(nr)) return;
+            // arm64 has only the *at syscalls; all carry the pathname in x1 (dirfd in x0).
+            auto* path = reinterpret_cast<const char*>(ctx->general.regs.x1);
+            if (!path_matches_target(path)) return;
+            ctx->general.regs.x1 = reinterpret_cast<uint64_t>(g_redirect_path.c_str());
         }
 
-        void copy_path(char* dest, const char* src) {
-            if (src == nullptr) {
-                dest[0] = '\0';
-                return;
-            }
-            strncpy(dest, src, PATH_MAX - 1);
-            dest[PATH_MAX - 1] = '\0';
-        }
-
-        // True only when the nearest `MOVZ x8,#nr` preceding this svc loads openat/openat2. The
-        // crash this guards is not in handle_svc -- it is Dobby's trampoline wrapping a hot,
-        // blocking, signal-restartable syscall (futex), which returns with a corrupted register
-        // context and SIGSEGVs. So a futex/read/mmap site must never be instrumented in the first
-        // place. Scanning back to the nearest x8 load distinguishes an openat stub from a futex
-        // stub even when they sit four instructions apart, because each has its own MOVZ x8.
-        bool svc_site_targets_openat(uintptr_t svc_addr, uintptr_t seg_start) {
-            constexpr int kMaxLookback = 16; // instructions
-            for (int k = 1; k <= kMaxLookback; ++k) {
-                uintptr_t probe = svc_addr - static_cast<uintptr_t>(k) * sizeof(uint32_t);
-                if (probe < seg_start) break;
-                uint32_t insn = *reinterpret_cast<const uint32_t*>(probe);
-                if ((insn & kMovzX8Mask) != kMovzX8Value) continue; // not a MOVZ into x8
-                uint32_t imm = (insn >> 5) & 0xFFFFu;               // the syscall number it loads
-                return imm == static_cast<uint32_t>(__NR_openat)
-#if defined(__NR_openat2)
-                       || imm == static_cast<uint32_t>(__NR_openat2)
-#endif
-                        ;
-            }
-            return false;
-        }
-
-        // Scans one loaded image's readable+executable PT_LOAD segments for "svc #0" and arms
-        // Dobby on every occurrence not already instrumented.
-        //
-        // Deliberately bounded by p_filesz, not p_memsz, and gated on PF_R as well as PF_X: this
-        // project already hit a SIGSEGV once (fixed in bc8afc8a2) from a similar scan that walked
-        // /proc/self/maps by p_memsz and read into a PROT_NONE guard gap between segments. p_memsz
-        // can run past the file-backed part of a segment into zero-filled pages this segment does
-        // not actually own, and some hardened libraries on newer Android ship execute-only (PF_X
-        // without PF_R) text pages -- reading either crashes the host app, not just this scan.
-        void scan_image_for_svc(const dl_phdr_info* info) {
-            for (int i = 0; i < info->dlpi_phnum; ++i) {
-                const ElfW(Phdr)& phdr = info->dlpi_phdr[i];
-                if (phdr.p_type != PT_LOAD) continue;
-                if ((phdr.p_flags & PF_X) == 0 || (phdr.p_flags & PF_R) == 0) continue;
-
-                auto seg_start = static_cast<uintptr_t>(info->dlpi_addr + phdr.p_vaddr);
-                uintptr_t seg_end = seg_start + phdr.p_filesz;
-                // AArch64 instructions are always 4-byte aligned; p_vaddr for an executable
-                // segment already is too, but round up defensively rather than assume it.
-                seg_start = (seg_start + 3u) & ~static_cast<uintptr_t>(3u);
-
-                for (uintptr_t addr = seg_start; addr + sizeof(uint32_t) <= seg_end; addr += sizeof(uint32_t)) {
-                    if (*reinterpret_cast<const uint32_t*>(addr) != kSvcInstruction) continue;
-                    // Scope gate: instrument only sites we can prove issue openat/openat2, never
-                    // futex/read/mmap/nanosleep, whose trampoline wrapping is what crashed.
-                    if (!svc_site_targets_openat(addr, seg_start)) continue;
-
-                    std::scoped_lock lock(g_svc_mutex);
-                    if (is_already_patched_locked(addr)) continue;
-                    if (DobbyInstrument(reinterpret_cast<void*>(addr), handle_svc) == 0) {
-                        g_patched_addrs.push_back(addr);
-                    } else {
-                        LOGW("SvcBypass: DobbyInstrument failed at {:p}", reinterpret_cast<void*>(addr));
-                    }
+        // Instrument every `svc #0` in [base, base+len). Caller must hold g_svc_mutex.
+        int instrument_range(uintptr_t base, size_t len) {
+            auto* words = reinterpret_cast<const uint32_t*>(base);
+            size_t count = len / sizeof(uint32_t);
+            int done = 0;
+            for (size_t i = 0; i < count; ++i) {
+                if (words[i] != kSvc0) continue;
+                uintptr_t addr = base + i * sizeof(uint32_t);
+                if (!g_instrumented.insert(addr).second) continue;  // already done in an earlier scan
+                if (DobbyInstrument(reinterpret_cast<void*>(addr), &svcHandler) != 0) {
+                    LOGW("SvcBypass: DobbyInstrument failed at {:#x}", addr);
+                    g_instrumented.erase(addr);
+                } else {
+                    ++done;
                 }
             }
+            return done;
         }
 
-        // Only images the app itself loaded (its own .so, a packer's decrypted secondary .so, all
-        // under /data or adopted storage) can hold the hand-written `svc #0` this layer exists to
-        // catch. libc/libart/the linker/app_process -- every system or runtime image, and the
-        // nameless main executable mapping -- carry only the normal syscall thunks (futex, read,
-        // poll, nanosleep); instrumenting those is exactly what crashed every thread parked in
-        // futex. Gate on path so they are never scanned.
-        bool is_app_owned_image(const char* name) {
-            if (name == nullptr || name[0] == '\0') return false; // app_process / anonymous mapping
-            if (name[0] == '[') return false;                     // [vdso], [anon:...]
-            return strncmp(name, "/data/", 6) == 0
-                   || strncmp(name, "/mnt/expand/", 12) == 0;      // app installed to adopted storage
-        }
-
-        int dl_iterate_callback(dl_phdr_info* info, size_t /*size*/, void* /*data*/) {
+        // dl_iterate_phdr visitor: scan the executable part of each PT_LOAD of an app-owned library.
+        int phdr_callback(dl_phdr_info* info, size_t /*size*/, void* /*data*/) {
             const char* name = info->dlpi_name;
-            if (!is_app_owned_image(name)) {
-                return 0; // never instrument system/runtime images -- see is_app_owned_image
+            if (name == nullptr || name[0] == '\0') return 0;  // app_process / anonymous mapping
+            std::string_view n{name};
+
+            // Unlike JM/LSPatch -- which runs the app from an origin-apk copy in cache and so also
+            // scans that cache dir -- NPatch runs from the normal installed base.apk and only
+            // redirects *reads* to origin.apk, so the app's own code is always under the install
+            // dir. A library outside it is a system lib (libc, ART, the linker) and left alone.
+            if (g_app_dir_prefix.empty() ||
+                n.compare(0, g_app_dir_prefix.size(), g_app_dir_prefix) != 0) {
+                return 0;
             }
-            if (strstr(name, "libnpatch") != nullptr) {
-                return 0; // our own injected library lives under /data too; never instrument it
+            // Our own injected libs sit under the install dir too; scanning them would instrument
+            // the very syscalls the handler and Dobby themselves run on.
+            if (n.find("libnpatch") != std::string_view::npos ||
+                n.find("libdobby") != std::string_view::npos) {
+                return 0;
             }
-            scan_image_for_svc(info);
+            // Documented gap, same as JM: a packer .so decrypted to and dlopen'd from the DATA dir
+            // (/data/data/<pkg>/...), or anonymous/JIT svc code, is not reported by dl_iterate_phdr.
+
+            int done = 0;
+            for (int i = 0; i < info->dlpi_phnum; ++i) {
+                const ElfW(Phdr)& ph = info->dlpi_phdr[i];
+                if (ph.p_type != PT_LOAD || !(ph.p_flags & PF_X) || ph.p_filesz == 0) continue;
+                done += instrument_range(static_cast<uintptr_t>(info->dlpi_addr + ph.p_vaddr),
+                                         ph.p_filesz);
+            }
+            if (done > 0) LOGD("SvcBypass: instrumented {} site(s) in {}", done, name);
             return 0;
         }
 
-        void scan_all_loaded_images() {
-            dl_iterate_phdr(dl_iterate_callback, nullptr);
+        void scan_app_libs() {
+            std::lock_guard<std::mutex> lock(g_svc_mutex);
+            if (g_app_dir_prefix.empty()) return;
+            dl_iterate_phdr(&phdr_callback, nullptr);
         }
 
-        using DlopenFn = void* (*)(const char*, int);
-        using DlopenExtFn = void* (*)(const char*, int, const void*);
+        // The packer .so is decrypted and dlopen'd after we arm, so a one-shot scan misses it;
+        // rescan after every load. We hook the linker's INTERNAL loader entries, not the public
+        // libdl dlopen/android_dlopen_ext: the public wrappers capture their caller via
+        // __builtin_return_address(0) to pick the caller's linker namespace, so hooking them makes
+        // the load resolve in the wrong namespace and any namespace-scoped load fail. The __loader_*
+        // forms take caller_addr explicitly, so forwarding it unchanged keeps namespaces intact.
+        using LoaderDlopenExtFn = void* (*)(const char*, int, const void*, const void*);
+        using LoaderDlopenFn = void* (*)(const char*, int, const void*);
+
+        LoaderDlopenExtFn g_orig_loader_dlopen_ext = nullptr;
+        LoaderDlopenFn g_orig_loader_dlopen = nullptr;
+
+        void* hooked_loader_dlopen_ext(const char* filename, int flags, const void* extinfo,
+                                       const void* caller_addr) {
+            void* h = g_orig_loader_dlopen_ext(filename, flags, extinfo, caller_addr);
+            if (h != nullptr) scan_app_libs();
+            return h;
+        }
+
+        void* hooked_loader_dlopen(const char* filename, int flags, const void* caller_addr) {
+            void* h = g_orig_loader_dlopen(filename, flags, caller_addr);
+            if (h != nullptr) scan_app_libs();
+            return h;
+        }
 
         bool g_dlopen_hooks_installed = false;
-        DlopenFn g_dlopen_backup = nullptr;
-        DlopenExtFn g_android_dlopen_ext_backup = nullptr;
-
-        // A packer that decrypts and dlopens a fresh SO after startup would otherwise never get
-        // scanned at all: the one-time scan_all_loaded_images() call in enable_svc_redirect_impl
-        // only sees what's already loaded at that point. Re-scanning everything on every dlopen
-        // is the same "accept the cost, it's opt-in and infrequent compared to the syscalls it
-        // guards" tradeoff the Stealth GOT hook's own xhook_refresh already makes.
-        void* hooked_dlopen(const char* filename, int flags) {
-            void* handle = g_dlopen_backup != nullptr ? g_dlopen_backup(filename, flags) : nullptr;
-            if (handle != nullptr && g_svc_armed.load(std::memory_order_acquire)) {
-                scan_all_loaded_images();
-            }
-            return handle;
-        }
-
-        void* hooked_android_dlopen_ext(const char* filename, int flags, const void* extinfo) {
-            void* handle = g_android_dlopen_ext_backup != nullptr
-                    ? g_android_dlopen_ext_backup(filename, flags, extinfo)
-                    : nullptr;
-            if (handle != nullptr && g_svc_armed.load(std::memory_order_acquire)) {
-                scan_all_loaded_images();
-            }
-            return handle;
-        }
-
         void install_dlopen_hooks_once() {
             if (g_dlopen_hooks_installed) return;
             g_dlopen_hooks_installed = true;
 
-            void* dlopen_symbol = dlsym(RTLD_DEFAULT, "dlopen");
-            if (dlopen_symbol == nullptr) {
-                LOGW("SvcBypass: dlopen symbol not found, incremental rescan disabled");
-            } else if (HookInline(dlopen_symbol, reinterpret_cast<void*>(hooked_dlopen),
-                                  reinterpret_cast<void**>(&g_dlopen_backup)) != 0) {
-                LOGW("SvcBypass: failed to hook dlopen");
+            // __loader_* are exported by the linker image, not libdl, so resolve them from linker64.
+            // A miss only disables the rescan for that entry (some packer coverage lost); the load
+            // itself is untouched.
+            vector::native::ElfImage linker("linker64");
+            if (auto* ext = linker.getSymbAddress<void*>("__loader_android_dlopen_ext")) {
+                if (HookInline(ext, reinterpret_cast<void*>(hooked_loader_dlopen_ext),
+                               reinterpret_cast<void**>(&g_orig_loader_dlopen_ext)) != 0) {
+                    LOGW("SvcBypass: failed to hook __loader_android_dlopen_ext");
+                }
+            } else {
+                LOGW("SvcBypass: __loader_android_dlopen_ext not resolved; rescan skipped for it");
             }
-
-            void* dlopen_ext_symbol = dlsym(RTLD_DEFAULT, "android_dlopen_ext");
-            if (dlopen_ext_symbol == nullptr) {
-                LOGW("SvcBypass: android_dlopen_ext symbol not found");
-            } else if (HookInline(dlopen_ext_symbol, reinterpret_cast<void*>(hooked_android_dlopen_ext),
-                                  reinterpret_cast<void**>(&g_android_dlopen_ext_backup)) != 0) {
-                LOGW("SvcBypass: failed to hook android_dlopen_ext");
+            if (auto* plain = linker.getSymbAddress<void*>("__loader_dlopen")) {
+                if (HookInline(plain, reinterpret_cast<void*>(hooked_loader_dlopen),
+                               reinterpret_cast<void**>(&g_orig_loader_dlopen)) != 0) {
+                    LOGW("SvcBypass: failed to hook __loader_dlopen");
+                }
+            } else {
+                LOGW("SvcBypass: __loader_dlopen not resolved; rescan skipped for it");
             }
         }
 
-        bool enable_svc_redirect_impl(JNIEnv* env, jstring jTargetPath, jstring jRedirectPath,
-                                      jstring jPkgName) {
-            if (jTargetPath == nullptr || jRedirectPath == nullptr) {
-                LOGW("SvcBypass: redirect paths cannot be null");
+        bool enable_svc_redirect_impl(const char* target, const char* redirect) {
+            if (target == nullptr || redirect == nullptr || target[0] == '\0' || redirect[0] == '\0') {
+                LOGW("SvcBypass: redirect paths cannot be null/empty");
+                return false;
+            }
+            {
+                std::lock_guard<std::mutex> lock(g_svc_mutex);
+                g_target_path = target;
+                g_redirect_path = redirect;
+                std::string_view t{g_target_path};
+                auto slash = t.find_last_of('/');
+                g_app_dir_prefix = slash == std::string_view::npos
+                                       ? std::string{}
+                                       : std::string{t.substr(0, slash)};
+                LOGD("SvcBypass: scope {} ; {} -> {}", g_app_dir_prefix, g_target_path,
+                     g_redirect_path);
+            }
+            if (g_app_dir_prefix.empty()) {
+                LOGW("SvcBypass: could not derive install dir from target path; not arming");
                 return false;
             }
 
-            lsplant::JUTFString target(env, jTargetPath);
-            lsplant::JUTFString redirect(env, jRedirectPath);
-            {
-                std::scoped_lock lock(g_svc_mutex);
-                copy_path(g_target_path, target.get());
-                copy_path(g_redirect_path, redirect.get());
-            }
-            (void) jPkgName;
+            // Keep every origin patch 4 bytes so a `svc; ret` wrapper is not overrun. Enabled once,
+            // before any DobbyInstrument/HookInline; degrades to the normal trampoline if no near
+            // cave is free, so it cannot hard-fail our other Dobby hooks.
+            static std::once_flag near_branch_once;
+            std::call_once(near_branch_once, dobby_enable_near_branch_trampoline);
 
-            install_dlopen_hooks_once();
-            scan_all_loaded_images();
-            g_svc_armed.store(true, std::memory_order_release);
+            install_dlopen_hooks_once();  // catch the packer lib loaded after this point
+            scan_app_libs();              // and anything already resident
             LOGI("SvcBypass: armed, {} -> {}", g_target_path, g_redirect_path);
             return true;
         }
@@ -303,13 +242,19 @@ namespace lspd {
     LSP_DEF_NATIVE_METHOD(jboolean, SigBypass, enableSvcRedirect,
                           jstring jTargetPath, jstring jRedirectPath, jstring jPkgName) {
 #if defined(__aarch64__)
-        return enable_svc_redirect_impl(env, jTargetPath, jRedirectPath, jPkgName)
-               ? JNI_TRUE : JNI_FALSE;
+        if (jTargetPath == nullptr || jRedirectPath == nullptr) {
+            LOGW("SvcBypass: redirect paths cannot be null");
+            return JNI_FALSE;
+        }
+        lsplant::JUTFString target(env, jTargetPath);
+        lsplant::JUTFString redirect(env, jRedirectPath);
+        (void) jPkgName;
+        return enable_svc_redirect_impl(target.get(), redirect.get()) ? JNI_TRUE : JNI_FALSE;
 #else
         (void) jTargetPath;
         (void) jRedirectPath;
         (void) jPkgName;
-        LOGI("SvcBypass: skipped on non-arm64 architecture");
+        LOGI("SvcBypass: raw-svc apk-read redirect is implemented on arm64 only");
         return JNI_FALSE;
 #endif
     }

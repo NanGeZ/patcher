@@ -9,8 +9,10 @@
 #include "core/native_api.h"
 #include "common/logging.h"
 #include "core/context.h"
+#include "elf/elf_image.h"
 #include "patch_loader.h"
 #include "proc_fd_path.h"
+#include "sig_bypass_paths.h"
 #include "utils/hook_helper.hpp"
 #include "utils/jni_helper.hpp"
 #include <dlfcn.h>
@@ -52,6 +54,8 @@ namespace lspd {
     using RealpathFn = char*(*)(const char*, char*);
     using StatFn = int(*)(const char*, struct stat*);
     using Stat64Fn = int(*)(const char*, struct stat64*);
+    using FstatAtFn = int(*)(int, const char*, struct stat*, int);
+    using FstatAt64Fn = int(*)(int, const char*, struct stat64*, int);
     using StatFsFn = int(*)(const char*, struct statfs*);
     using StatxFn = int(*)(int, const char*, int, unsigned int, struct statx*);
     using CloseFn = int(*)(int);
@@ -186,15 +190,7 @@ namespace lspd {
     }
 
     static void copy_path(char* dest, const char* src) {
-        if (dest == nullptr) {
-            return;
-        }
-        if (src == nullptr) {
-            dest[0] = '\0';
-            return;
-        }
-        strncpy(dest, src, PATH_MAX - 1);
-        dest[PATH_MAX - 1] = '\0';
+        CopyPathBuffer(dest, PATH_MAX, src);
     }
 
     static std::string to_lower(std::string value) {
@@ -291,27 +287,13 @@ namespace lspd {
 
 
     static bool path_matches_target_locked(const char* pathname) {
-        if (pathname == nullptr || targetApkPath.empty()) {
-            return false;
-        }
-        if (strcmp(pathname, targetApkPath.c_str()) == 0) {
-            return true;
-        }
-        size_t target_len = targetApkPath.size();
-        return strncmp(pathname, targetApkPath.c_str(), target_len) == 0
-               && strcmp(pathname + target_len, " (deleted)") == 0;
+        if (targetApkPath.empty()) return false;
+        return PathMatchesTarget(pathname, targetApkPath.c_str(), targetApkPath.size());
     }
 
     static bool path_matches_redirect_locked(const char* pathname) {
-        if (pathname == nullptr || redirectApkPath.empty()) {
-            return false;
-        }
-        if (strcmp(pathname, redirectApkPath.c_str()) == 0) {
-            return true;
-        }
-        size_t redirect_len = redirectApkPath.size();
-        return strncmp(pathname, redirectApkPath.c_str(), redirect_len) == 0
-               && strcmp(pathname + redirect_len, " (deleted)") == 0;
+        if (redirectApkPath.empty()) return false;
+        return PathMatchesTarget(pathname, redirectApkPath.c_str(), redirectApkPath.size());
     }
 
 
@@ -1641,12 +1623,86 @@ namespace lspd {
         return true;
     }
 
+    // __openat is bionic's internal file-open chokepoint: open/openat/openat64/open64/fopen all
+    // funnel through it before issuing the real syscall (confirmed against JingMatrix/LSPatch,
+    // which hooks only this one symbol for the same redirect purpose). One inline hook here covers
+    // the same ground as hooking those five public symbols individually, cutting the install/
+    // failure surface for the pure "redirect APK content reads" job down to LSPatch's footprint.
+    // access/readlink/realpath/stat family stay hooked individually below: those are independent
+    // syscalls that never go through __openat, and NPatch (unlike LSPatch) also spoofs their
+    // result for apps that stat/access their own APK natively instead of just reading it.
+    // Not every bionic revision is guaranteed to export this symbol dynamically, so resolution can
+    // fail; callers fall back to the previous per-symbol family when it does, never losing coverage.
+    using InternalOpenAtFn = int (*)(int, const char*, int, int);
+    static InternalOpenAtFn openat_chokepoint_backup = nullptr;
+    static bool openat_chokepoint_hook_installed = false;
+
+    static void* resolve_openat_chokepoint() {
+        static void* const cached = [] () -> void* {
+            vector::native::ElfImage libc("libc.so");
+            return libc.IsValid() ? libc.getSymbAddress<void*>("__openat") : nullptr;
+        }();
+        return cached;
+    }
+
+    static int hooked_openat_chokepoint(int dirfd, const char* pathname, int flags, int mode) {
+        const void* caller_pc = __builtin_return_address(0);
+        const char* redirected_path = pathname;
+
+        if (!g_openat_reentry) {
+            g_openat_reentry = true;
+            if (is_read_only_open(flags)) {
+                int sanitized_fd = open_sanitized_proc_file(pathname, caller_pc);
+                if (sanitized_fd >= 0) {
+                    LOGD("SigBypass: Serve sanitized __openat for {}", pathname);
+                    g_openat_reentry = false;
+                    return sanitized_fd;
+                }
+            }
+            const char* candidate = resolve_redirect_path(pathname);
+            if (candidate != pathname && candidate != nullptr
+                    && should_redirect_apk_contents(caller_pc)) {
+                redirected_path = candidate;
+                LOGD("SigBypass: Redirecting __openat('{}') -> '{}'", pathname, redirected_path);
+            }
+            g_openat_reentry = false;
+        }
+
+        if (openat_chokepoint_backup == nullptr) {
+            errno = ENOSYS;
+            return -1;
+        }
+        return openat_chokepoint_backup(dirfd, redirected_path, flags, mode);
+    }
+
+    static bool install_openat_chokepoint_hook() {
+        if (openat_chokepoint_hook_installed) {
+            return true;
+        }
+        void* target = resolve_openat_chokepoint();
+        if (target == nullptr) {
+            LOGW("SigBypass: __openat chokepoint not resolved on this bionic revision, "
+                 "falling back to per-symbol hooks");
+            return false;
+        }
+        if (HookInline(target, reinterpret_cast<void*>(hooked_openat_chokepoint),
+                       reinterpret_cast<void**>(&openat_chokepoint_backup)) != 0) {
+            LOGW("SigBypass: failed to install __openat chokepoint hook, "
+                 "falling back to per-symbol hooks");
+            return false;
+        }
+        openat_chokepoint_hook_installed = true;
+        LOGI("SigBypass: native APK redirect installed via __openat chokepoint");
+        return true;
+    }
+
     static void enable_openat_hook_impl(JNIEnv* env,
                                         jstring jOrigApkPath,
                                         jstring jCacheApkPath,
                                         jstring jPkgName,
                                         bool minimal,
-                                        bool hide) {
+                                        bool hide,
+                                        bool skip_openat_redirect) {
 
         if (jOrigApkPath == nullptr || jCacheApkPath == nullptr) {
             LOGE("Invalid arguments: paths cannot be null.");
@@ -1669,20 +1725,12 @@ namespace lspd {
             }
         }
 
-        LOGI("Enable OpenAt Hook: {} -> {} (Pkg: {}, Hide: {})",
-             targetApkPath.c_str(), redirectApkPath.c_str(), currentPackageName.c_str(), g_lib_hide_enabled);
+        LOGI("Enable OpenAt Hook: {} -> {} (Pkg: {}, Hide: {}, SkipRedirect: {})",
+             targetApkPath.c_str(), redirectApkPath.c_str(), currentPackageName.c_str(),
+             g_lib_hide_enabled, skip_openat_redirect);
 
-        const bool openat_ok = install_openat_hook("openat", hooked_openat,
-                                                   &openat_target, &openat_backup,
-                                                   &openat_hook_installed);
-        void* openat64_symbol = dlsym(RTLD_DEFAULT, "openat64");
+        bool openat_ok = true;
         bool openat64_ok = true;
-        if (openat64_symbol != nullptr && openat64_symbol != openat_target) {
-            openat64_ok = install_openat_hook("openat64", hooked_openat64,
-                                              &openat64_target, &openat64_backup,
-                                              &openat64_hook_installed);
-        }
-
         bool open_ok = true;
         bool open64_ok = true;
         bool open2_ok = true;
@@ -1698,16 +1746,56 @@ namespace lspd {
         bool statx_ok = true;
         bool fopen_ok = true;
         bool dl_iterate_phdr_ok = true;
-        if (!minimal_file_hook_mode) {
-            open_ok = install_open_hook("open", hooked_open,
-                                        &open_target, &open_backup,
-                                        &open_hook_installed);
-            void* open64_symbol = dlsym(RTLD_DEFAULT, "open64");
-            if (open64_symbol != nullptr && open64_symbol != open_target) {
-                open64_ok = install_open_hook("open64", hooked_open64,
-                                              &open64_target, &open64_backup,
-                                              &open64_hook_installed);
+
+        // skip_openat_redirect: another native backend (currently seccomp trap-and-replay) already
+        // owns redirecting file-open reads of the APK, so installing this hook family too would
+        // just be two independent mechanisms rewriting the same syscall's result. access/readlink/
+        // stat family below stay unconditional -- seccomp doesn't cover those -- and so does
+        // dl_iterate_phdr for hideLibs, which is an unrelated concern.
+        if (!skip_openat_redirect) {
+            if (!minimal_file_hook_mode) {
+                // LSPatch-style single chokepoint first; falls back to the five hooks it replaces
+                // if __openat couldn't be resolved on this bionic revision (see the function's own
+                // doc comment above for why only these five, not the stat/access family, apply).
+                if (!install_openat_chokepoint_hook()) {
+                    openat_ok = install_openat_hook("openat", hooked_openat,
+                                                    &openat_target, &openat_backup,
+                                                    &openat_hook_installed);
+                    void* openat64_symbol = dlsym(RTLD_DEFAULT, "openat64");
+                    if (openat64_symbol != nullptr && openat64_symbol != openat_target) {
+                        openat64_ok = install_openat_hook("openat64", hooked_openat64,
+                                                          &openat64_target, &openat64_backup,
+                                                          &openat64_hook_installed);
+                    }
+                    open_ok = install_open_hook("open", hooked_open,
+                                                &open_target, &open_backup,
+                                                &open_hook_installed);
+                    void* open64_symbol = dlsym(RTLD_DEFAULT, "open64");
+                    if (open64_symbol != nullptr && open64_symbol != open_target) {
+                        open64_ok = install_open_hook("open64", hooked_open64,
+                                                      &open64_target, &open64_backup,
+                                                      &open64_hook_installed);
+                    }
+                    fopen_ok = install_fopen_hook();
+                }
+            } else {
+                // Keep 360-like protectors on the old openat-only APK redirect path,
+                // but still provide a narrow maps view for fd/inode consistency checks.
+                open_ok = install_open_hook("open", hooked_open,
+                                            &open_target, &open_backup,
+                                            &open_hook_installed);
+                void* open64_symbol = dlsym(RTLD_DEFAULT, "open64");
+                if (open64_symbol != nullptr && open64_symbol != open_target) {
+                    open64_ok = install_open_hook("open64", hooked_open64,
+                                                  &open64_target, &open64_backup,
+                                                  &open64_hook_installed);
+                }
+                open2_ok = install_open2_hook();
+                fopen_ok = install_fopen_hook();
             }
+        }
+
+        if (!minimal_file_hook_mode) {
             access_ok = install_plain_hook("access", reinterpret_cast<void*>(hooked_access),
                                            &access_target, &access_backup, &access_hook_installed);
             readlink_ok = install_plain_hook("readlink", reinterpret_cast<void*>(hooked_readlink),
@@ -1728,39 +1816,19 @@ namespace lspd {
                                            &statfs_target, &statfs_backup, &statfs_hook_installed);
             statx_ok = install_plain_hook("statx", reinterpret_cast<void*>(hooked_statx),
                                           &statx_target, &statx_backup, &statx_hook_installed);
-            fopen_ok = install_fopen_hook();
-            if (g_lib_hide_enabled) {
-                dl_iterate_phdr_ok = install_plain_hook("dl_iterate_phdr",
-                                                        reinterpret_cast<void*>(hooked_dl_iterate_phdr),
-                                                        &dl_iterate_phdr_target,
-                                                        &dl_iterate_phdr_backup,
-                                                        &dl_iterate_phdr_hook_installed);
-            }
-        } else {
-            // Keep 360-like protectors on the old openat-only APK redirect path,
-            // but still provide a narrow maps view for fd/inode consistency checks.
-            open_ok = install_open_hook("open", hooked_open,
-                                        &open_target, &open_backup,
-                                        &open_hook_installed);
-            void* open64_symbol = dlsym(RTLD_DEFAULT, "open64");
-            if (open64_symbol != nullptr && open64_symbol != open_target) {
-                open64_ok = install_open_hook("open64", hooked_open64,
-                                              &open64_target, &open64_backup,
-                                              &open64_hook_installed);
-            }
-            open2_ok = install_open2_hook();
-            fopen_ok = install_fopen_hook();
-
-            if (g_lib_hide_enabled) {
-                dl_iterate_phdr_ok = install_plain_hook("dl_iterate_phdr",
-                                                        reinterpret_cast<void*>(hooked_dl_iterate_phdr),
-                                                        &dl_iterate_phdr_target,
-                                                        &dl_iterate_phdr_backup,
-                                                        &dl_iterate_phdr_hook_installed);
-            }
         }
 
-        if (!openat_ok && !openat64_ok && !open_ok && !open64_ok && !open2_ok
+        if (g_lib_hide_enabled) {
+            dl_iterate_phdr_ok = install_plain_hook("dl_iterate_phdr",
+                                                    reinterpret_cast<void*>(hooked_dl_iterate_phdr),
+                                                    &dl_iterate_phdr_target,
+                                                    &dl_iterate_phdr_backup,
+                                                    &dl_iterate_phdr_hook_installed);
+        }
+
+        if (!skip_openat_redirect
+            && !openat_ok && !openat64_ok && !open_ok && !open64_ok && !open2_ok
+            && !openat_chokepoint_hook_installed
             && !access_ok && !readlink_ok && !readlinkat_ok && !realpath_ok
             && !stat_ok && !lstat_ok && !stat64_ok && !lstat64_ok
             && !statfs_ok && !statx_ok && !fopen_ok
@@ -1803,16 +1871,20 @@ namespace lspd {
                           jstring jOrigApkPath,
                           jstring jCacheApkPath,
                           jstring jPkgName,
-                          jboolean jHide) {
-        enable_openat_hook_impl(env, jOrigApkPath, jCacheApkPath, jPkgName, false, jHide);
+                          jboolean jHide,
+                          jboolean jSkipOpenatRedirect) {
+        enable_openat_hook_impl(env, jOrigApkPath, jCacheApkPath, jPkgName, false, jHide,
+                                jSkipOpenatRedirect);
     }
 
     LSP_DEF_NATIVE_METHOD(void, SigBypass, enableOpenatHookMinimal,
                           jstring jOrigApkPath,
                           jstring jCacheApkPath,
                           jstring jPkgName,
-                          jboolean jHide) {
-        enable_openat_hook_impl(env, jOrigApkPath, jCacheApkPath, jPkgName, true, jHide);
+                          jboolean jHide,
+                          jboolean jSkipOpenatRedirect) {
+        enable_openat_hook_impl(env, jOrigApkPath, jCacheApkPath, jPkgName, true, jHide,
+                                jSkipOpenatRedirect);
     }
 
     LSP_DEF_NATIVE_METHOD(void, SigBypass, setModuleNativeLibraryRoots, jobjectArray jRoots) {
@@ -1828,8 +1900,8 @@ namespace lspd {
 
     // 註冊 JNI 方法
     static JNINativeMethod gMethods[] = {
-            LSP_NATIVE_METHOD(SigBypass, enableOpenatHook, "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Z)V"),
-            LSP_NATIVE_METHOD(SigBypass, enableOpenatHookMinimal, "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Z)V"),
+            LSP_NATIVE_METHOD(SigBypass, enableOpenatHook, "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZ)V"),
+            LSP_NATIVE_METHOD(SigBypass, enableOpenatHookMinimal, "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZ)V"),
             LSP_NATIVE_METHOD(SigBypass, setModuleNativeLibraryRoots, "([Ljava/lang/String;)V"),
             LSP_NATIVE_METHOD(SigBypass, disableOpenatHook, "()V")
     };

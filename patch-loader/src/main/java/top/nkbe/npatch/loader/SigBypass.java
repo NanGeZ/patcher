@@ -844,6 +844,12 @@ public class SigBypass {
         if (hookLevel >= Constants.SIGBYPASS_BASIC && redirectApkPath != null) {
             hookJavaIO(currentApkPath, redirectApkPath);
             hookJavaFilePathAccessors();
+            // SECCOMP's own trap-and-replay (below) takes sole ownership of native openat
+            // redirection once it's armed; installing the inline hook too would mean two
+            // independent native mechanisms rewriting the same syscall's result, which only adds
+            // interaction risk without adding coverage. access/readlink/stat-family inline hooks
+            // stay installed either way -- seccomp doesn't cover those.
+            boolean skipOpenatRedirect = sigBypassLevel == Constants.SIGBYPASS_SECCOMP;
             useMinimalNativeFileHook = useMinimalNativeFileHook || is360ProtectedApk(redirectApkPath);
             if (useMinimalNativeFileHook) {
                 XLog.i(TAG, "360-like protector detected, using minimal native APK redirect");
@@ -851,17 +857,19 @@ public class SigBypass {
                         currentApkPath,
                         redirectApkPath,
                         context.getPackageName(),
-                        hideLibs
+                        hideLibs,
+                        skipOpenatRedirect
                 );
             } else {
                 org.lsposed.lspd.nativebridge.SigBypass.enableOpenatHook(
                         currentApkPath,
                         redirectApkPath,
                         context.getPackageName(),
-                        hideLibs
+                        hideLibs,
+                        skipOpenatRedirect
                 );
             }
-            nativeOpenatEnabled = true;
+            nativeOpenatEnabled = !skipOpenatRedirect;
             libHideEnabled = hideLibs;
         }
 
