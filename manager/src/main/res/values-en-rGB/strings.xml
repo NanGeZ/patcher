@@ -15,7 +15,6 @@
     <string name="welcome_disclaimer_title">Terms and Accountability</string>
     <string name="welcome_disclaimer_summary">Review these operational risks before patching applications or loading modules.</string>
     <string name="welcome_disclaimer_content">Patching applications may lead to instability, data corruption, or compatibility failures. Ensure critical data is backed up. You are solely responsible for the conduct of patched apps and modules on your device.</string>
-    <string name="welcome_gpl_content">NPatch is open-source software released under the GNU General Public Licence v3.0. Please adhere to the licence terms when using, modifying, or redistributing this software.</string>
     <string name="welcome_btn_next">Next</string>
     <string name="welcome_btn_skip">Skip setup</string>
     <string name="welcome_btn_finish">Get started</string>

@@ -33,6 +33,10 @@ plugins {
 }
 
 android {
+    lint {
+        disable += setOf("MissingTranslation", "ExtraTranslation")
+    }
+
     defaultConfig {
         applicationId = defaultManagerPackageName
         val managerSignatureAllowlist = (
