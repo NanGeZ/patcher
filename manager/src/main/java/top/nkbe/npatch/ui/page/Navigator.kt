@@ -52,6 +52,10 @@ class Navigator(
         }
     }
 
+    fun current(): NavKey? = backStack.lastOrNull()
+
+    fun backStackSize(): Int = backStack.size
+
     /**
      * 导航并等待结果。
      * 返回 null 表示被取消（如按返回键）。

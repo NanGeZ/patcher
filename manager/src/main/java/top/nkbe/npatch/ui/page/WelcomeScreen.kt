@@ -154,6 +154,7 @@ fun WelcomeScreen(
     }
 
     NPatchScaffold(
+        containerColor = MiuixTheme.colorScheme.background,
         bottomBar = {
             WelcomeBottomBar(
                 page = pagerState.currentPage,

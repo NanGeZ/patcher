@@ -208,6 +208,7 @@ fun AppDetailScreen(
     val hazeState = rememberHazeState()
 
     NPatchScaffold(
+        containerColor = MiuixTheme.colorScheme.background,
         topBar = {
             NPatchTopAppBar(
                 title = stringResource(R.string.manage_app_detail),

@@ -2,7 +2,6 @@ package top.nkbe.npatch.ui.page
 
 import android.content.pm.ApplicationInfo
 import android.os.Parcelable
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -113,11 +112,8 @@ fun SelectAppsScreen(
         viewModel.filterAppList(false, filter)
     }
 
-    BackHandler {
-        navigator.pop()
-    }
-
     NPatchScaffold(
+        containerColor = MiuixTheme.colorScheme.background,
         topBar = {
             searchStatus.TopAppBarAnim {
                 NPatchTopAppBar(

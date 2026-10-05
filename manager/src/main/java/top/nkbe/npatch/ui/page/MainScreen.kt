@@ -1,6 +1,5 @@
 package top.nkbe.npatch.ui.page
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -11,6 +10,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -28,6 +28,9 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.basic.NavigationBar
@@ -92,11 +95,14 @@ fun MainScreen(
         null
     }
 
-    BackHandler(enabled = pagerState.currentPage != MainTab.Home.ordinal) {
-        scope.launch {
-            pagerState.animateScrollToPage(MainTab.Home.ordinal)
-        }
-    }
+    MainScreenBackHandler(
+        navigator = navigator,
+        pagerState = pagerState,
+        homeIndex = MainTab.Home.ordinal,
+        onBackToHome = {
+            scope.launch { pagerState.animateScrollToPage(MainTab.Home.ordinal) }
+        },
+    )
 
     LaunchedEffect(safeSelectedTab) {
         if (!pagerState.isScrollInProgress && pagerState.targetPage != safeSelectedTab) {
@@ -210,4 +216,26 @@ fun MainScreen(
             }
         }
     }
+}
+
+@Composable
+private fun MainScreenBackHandler(
+    navigator: Navigator,
+    pagerState: PagerState,
+    homeIndex: Int,
+    onBackToHome: () -> Unit,
+) {
+    val isPagerBackHandlerEnabled by remember(homeIndex) {
+        derivedStateOf {
+            navigator.current() is Route.Main &&
+                navigator.backStackSize() == 1 &&
+                pagerState.currentPage != homeIndex
+        }
+    }
+    val navEventState = rememberNavigationEventState(NavigationEventInfo.None)
+    NavigationBackHandler(
+        state = navEventState,
+        isBackEnabled = isPagerBackHandlerEnabled,
+        onBackCompleted = onBackToHome,
+    )
 }

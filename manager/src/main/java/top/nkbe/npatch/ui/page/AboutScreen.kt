@@ -83,6 +83,8 @@ fun AboutScreen(onBack: () -> Unit) {
     val hazeState = rememberHazeState()
     val hazeStyle = backgroundAwareHazeStyle()
     NPatchScaffold(
+        // 二級頁面用實心底色，不透出自訂背景圖
+        containerColor = MiuixTheme.colorScheme.background,
         topBar = {
             NPatchTopAppBar(
                 title = stringResource(R.string.home_about),

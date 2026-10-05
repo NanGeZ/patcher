@@ -1,6 +1,5 @@
 package top.nkbe.npatch.ui.page
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -22,6 +21,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -78,11 +80,16 @@ fun ManageScreen(
     }
     val floatingBottomBarPadding = LocalFloatingBottomBarPadding.current
 
-    BackHandler(enabled = !searchStatus.isExpand() && pagerState.currentPage != 0) {
-        scope.launch {
-            pagerState.animateScrollToPage(0)
-        }
-    }
+    val backEventState = rememberNavigationEventState(NavigationEventInfo.None)
+    NavigationBackHandler(
+        state = backEventState,
+        isBackEnabled = !searchStatus.isExpand() && pagerState.currentPage != 0,
+        onBackCompleted = {
+            scope.launch {
+                pagerState.animateScrollToPage(0)
+            }
+        },
+    )
 
     LaunchedEffect(safeSelectedPage) {
         if (!pagerState.isScrollInProgress && pagerState.targetPage != safeSelectedPage) {

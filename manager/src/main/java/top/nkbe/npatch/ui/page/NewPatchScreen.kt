@@ -1,7 +1,6 @@
 package top.nkbe.npatch.ui.page
 
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -15,7 +14,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import kotlinx.coroutines.launch
 import nkbe.util.NeoPackageManager
 import top.nkbe.npatch.R
@@ -169,17 +172,24 @@ fun NewPatchScreen(
         }
     }
 
-    // 返回鍵攔截
-    BackHandler(enabled = true) {
-        if (viewModel.patchState != PatchState.PATCHING) {
-            scope.launch { NeoPackageManager.cleanTmpApkDir() }
+    // 暫存檔清理挪到 onDispose，不管怎麼離開都會跑到。
+    val backEventState = rememberNavigationEventState(NavigationEventInfo.None)
+    NavigationBackHandler(
+        state = backEventState,
+        isBackEnabled = viewModel.patchState == PatchState.PATCHING,
+        onBackCompleted = {},
+    )
+
+    DisposableEffect(Unit) {
+        onDispose {
             viewModel.reset()
-            navigator.pop()
+            viewModel.viewModelScope.launch { NeoPackageManager.cleanTmpApkDir() }
         }
     }
 
     // 主體 UI 結構
     NPatchScaffold(
+        containerColor = MiuixTheme.colorScheme.background,
         topBar = {
             when (viewModel.patchState) {
                 PatchState.CONFIGURING -> ConfiguringTopBar(scrollBehavior) {
