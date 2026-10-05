@@ -26,10 +26,9 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.navigation3.runtime.NavKey
-import androidx.navigation3.runtime.entryProvider
-import androidx.navigation3.ui.NavDisplay
 import coil.compose.AsyncImage
 import top.nkbe.npatch.LSPApplication
 import top.nkbe.npatch.config.Configs
@@ -42,6 +41,7 @@ import top.nkbe.npatch.ui.page.MainTab
 import top.nkbe.npatch.ui.page.MainScreen
 import top.nkbe.npatch.ui.page.Navigator
 import top.nkbe.npatch.ui.page.NewPatchScreen
+import top.nkbe.npatch.ui.page.manage.AppDetailScreen
 import top.nkbe.npatch.ui.page.Route
 import top.nkbe.npatch.ui.page.SelectAppsScreen
 import top.nkbe.npatch.ui.page.WelcomeScreen
@@ -64,6 +64,11 @@ import top.nkbe.npatch.ui.component.DialogButtonBar
 import top.nkbe.npatch.ui.component.DialogButtonBarAction
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.nav.core.NavDisplay
+import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
+import top.yukonga.miuix.kmp.nav.core.NavKey
+import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
+import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
 import nkbe.util.NeoPackageManager
 import nkbe.util.ShizukuApi
 import top.nkbe.npatch.R
@@ -202,6 +207,12 @@ class MainActivity : ComponentActivity() {
                         var selectedManageTab by rememberSaveable {
                             mutableIntStateOf(startMainRoute?.initialManageTab ?: 0)
                         }
+                        // 側滑返回手勢（RTL 鏡像方向）。Main/Welcome 是根頁面，不給手勢。
+                        val swipeBackDirection = if (LocalLayoutDirection.current == LayoutDirection.Rtl) {
+                            NavSwipeDirection.RightToLeft
+                        } else {
+                            NavSwipeDirection.LeftToRight
+                        }
 
                         CompositionLocalProvider(
                             LocalSnackbarHost provides snackbarHostState,
@@ -210,44 +221,56 @@ class MainActivity : ComponentActivity() {
                             NavDisplay(
                                 backStack = backStack,
                                 onBack = { navigator.pop() },
-                                entryProvider = entryProvider {
-                                    entry<Route.Main> {
-                                        MainScreen(
-                                            navigator = navigator,
-                                            selectedTab = selectedMainTab,
-                                            selectedManageTab = selectedManageTab,
-                                            onSelectedTabChange = { selectedMainTab = it },
-                                            onSelectedManageTabChange = { selectedManageTab = it }
-                                        )
-                                    }
-
-                                    entry<Route.About> {
-                                        AboutScreen(onBack = { navigator.pop() })
-                                    }
-
-                                    entry<Route.Welcome> { route ->
-                                        WelcomeScreen(
-                                            reviewMode = route.reviewMode,
-                                            onFinish = {
-                                                backStack.clear()
-                                                backStack.add(Route.Main())
-                                            },
-                                            onReturn = { navigator.pop() }
-                                        )
-                                    }
-
-                                    entry<Route.NewPatch> { route ->
-                                        NewPatchScreen(id = route.id, data = route.data)
-                                    }
-
-                                    entry<Route.SelectApps> { route ->
-                                        SelectAppsScreen(
-                                            multiSelect = route.multiSelect,
-                                            initialSelected = route.initialSelected
-                                        )
-                                    }
+                                effects = NavDisplayEffects(
+                                    enableCornerClip = true,
+                                    cornerClipRadius = rememberNavSystemCornerRadius(),
+                                    dimAmount = 0.5f,
+                                ),
+                            ) {
+                                entry<Route.Main> {
+                                    MainScreen(
+                                        navigator = navigator,
+                                        selectedTab = selectedMainTab,
+                                        selectedManageTab = selectedManageTab,
+                                        onSelectedTabChange = { selectedMainTab = it },
+                                        onSelectedManageTabChange = { selectedManageTab = it }
+                                    )
                                 }
-                            )
+
+                                entry<Route.About>(swipeDismiss = swipeBackDirection) {
+                                    AboutScreen(onBack = { navigator.pop() })
+                                }
+
+                                entry<Route.Welcome>(swipeDismiss = swipeBackDirection) { route ->
+                                    WelcomeScreen(
+                                        reviewMode = route.reviewMode,
+                                        onFinish = {
+                                            backStack.clear()
+                                            backStack.add(Route.Main())
+                                        },
+                                        onReturn = { navigator.pop() }
+                                    )
+                                }
+
+                                entry<Route.NewPatch>(swipeDismiss = swipeBackDirection) { route ->
+                                    NewPatchScreen(id = route.id, data = route.data)
+                                }
+
+                                entry<Route.SelectApps>(swipeDismiss = swipeBackDirection) { route ->
+                                    SelectAppsScreen(
+                                        multiSelect = route.multiSelect,
+                                        initialSelected = route.initialSelected
+                                    )
+                                }
+
+                                entry<Route.AppDetail>(swipeDismiss = swipeBackDirection) { route ->
+                                    AppDetailScreen(
+                                        packageName = route.packageName,
+                                        navigator = navigator,
+                                        onBack = { navigator.pop() }
+                                    )
+                                }
+                            }
                         }
 
                         if (Configs.welcomeSeen && !appListGranted && !ShizukuApi.isReady) {

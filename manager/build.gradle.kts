@@ -156,8 +156,6 @@ dependencies {
     implementation(npatch.coil.compose)
     implementation(libs.gson)
     implementation(npatch.androidx.lifecycle.viewmodel.compose)
-    implementation(npatch.androidx.navigation3.runtime)
-    implementation(npatch.androidx.navigation3.ui)
     implementation("androidx.preference:preference-ktx:1.2.1")
     implementation(npatch.androidx.room.ktx)
     implementation(npatch.androidx.room.runtime)
@@ -180,6 +178,8 @@ dependencies {
     implementation("top.yukonga.miuix.kmp:miuix-ui:$miuixVersion")
     implementation("top.yukonga.miuix.kmp:miuix-preference:$miuixVersion")
     implementation("top.yukonga.miuix.kmp:miuix-icons:$miuixVersion")
+    implementation("top.yukonga.miuix.kmp:miuix-nav:$miuixVersion")
+    implementation("androidx.navigationevent:navigationevent-compose:1.1.2")
     implementation(npatch.androidx.webkit)
 
 

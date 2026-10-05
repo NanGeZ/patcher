@@ -82,6 +82,24 @@
     <string name="manage_module_api_unsupported">不支援的 API %1$d</string>
     <string name="manage_module_unsupported_warning">Modern 架構不支援 API %1$d</string>
     <string name="manage_check_manager_package_name">該程式由 %1$s 管理\n在本管理器中修改作用域 %2$s 不會生效\n重新修補以解決此問題</string>
+    <string name="manage_app_detail">應用程式詳情</string>
+    <string name="manage_status_section">狀態</string>
+    <string name="manage_actions_section">操作</string>
+    <string name="manage_system_section">系統</string>
+    <string name="manage_danger_section">危險操作</string>
+    <string name="manage_loader_version">Loader 版本</string>
+    <string name="manage_update_available">有更新</string>
+    <string name="manage_update_loader_desc">有新版本可用（%1$d）</string>
+    <string name="manage_repatch_desc">套用新設定重新修補此應用</string>
+    <string name="manage_optimize_desc">清除快取並重新編譯</string>
+    <string name="manage_export_diagnostics_desc">整理日誌以分享或回報問題</string>
+    <string name="manage_force_stop_desc">立即終止執行中的程序</string>
+    <string name="manage_force_restart_desc">結束後重新啟動</string>
+    <string name="manage_uninstall_desc">移除此應用及其資料</string>
+    <plurals name="manage_module_scope_count">
+        <item quantity="one">%d 個模組</item>
+        <item quantity="other">%d 個模組</item>
+    </plurals>
 
     <!-- New Patch Screen -->
     <string name="screen_new_patch">新增打包程式</string>

@@ -85,6 +85,24 @@
     <string name="manage_module_api_unsupported">Unsupported API %1$d</string>
     <string name="manage_module_unsupported_warning">API %1$d is not supported by the modern pipeline</string>
     <string name="manage_check_manager_package_name">This program is managed by %1$s\nModifying the scope %2$s within this manager will not take effect\nPlease re-patch to resolve this issue</string>
+    <string name="manage_app_detail">App detail</string>
+    <string name="manage_status_section">Status</string>
+    <string name="manage_actions_section">Actions</string>
+    <string name="manage_system_section">System</string>
+    <string name="manage_danger_section">Danger zone</string>
+    <string name="manage_loader_version">Loader version</string>
+    <string name="manage_update_available">Update available</string>
+    <string name="manage_update_loader_desc">New version available (%1$d)</string>
+    <string name="manage_repatch_desc">Apply new settings and re-patch this app</string>
+    <string name="manage_optimize_desc">Clear cache and recompile</string>
+    <string name="manage_export_diagnostics_desc">Collect logs to share or report an issue</string>
+    <string name="manage_force_stop_desc">Immediately stop the running process</string>
+    <string name="manage_force_restart_desc">Stop, then relaunch</string>
+    <string name="manage_uninstall_desc">Remove this app and its data</string>
+    <plurals name="manage_module_scope_count">
+        <item quantity="one">%d module</item>
+        <item quantity="other">%d modules</item>
+    </plurals>
 
     <!-- New Patch Screen -->
     <string name="screen_new_patch">New Patch</string>

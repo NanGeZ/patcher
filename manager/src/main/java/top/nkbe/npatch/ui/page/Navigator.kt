@@ -1,9 +1,9 @@
 package top.nkbe.npatch.ui.page
 
 import androidx.compose.runtime.compositionLocalOf
-import androidx.navigation3.runtime.NavKey
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
+import top.yukonga.miuix.kmp.nav.core.NavKey
 
 /**
  * 导航辅助类，管理返回栈和结果通道。

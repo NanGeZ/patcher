@@ -1,7 +1,7 @@
 package top.nkbe.npatch.ui.page
 
-import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
+import top.yukonga.miuix.kmp.nav.core.NavKey
 
 /**
  * Navigation3 路由定义。
@@ -31,5 +31,10 @@ sealed interface Route : NavKey {
     data class SelectApps(
         val multiSelect: Boolean, 
         val initialSelected: List<String>? = null
+    ) : Route
+
+    @Serializable
+    data class AppDetail(
+        val packageName: String
     ) : Route
 }
