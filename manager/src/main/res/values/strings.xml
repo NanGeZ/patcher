@@ -91,6 +91,7 @@
     <string name="manage_system_section">System</string>
     <string name="manage_danger_section">Danger zone</string>
     <string name="manage_loader_version">Loader version</string>
+    <string name="manage_sigbypass_level">Signature bypass level</string>
     <string name="manage_update_available">Update available</string>
     <string name="manage_update_loader_desc">New version available (%1$d)</string>
     <string name="manage_repatch_desc">Apply new settings and re-patch this app</string>

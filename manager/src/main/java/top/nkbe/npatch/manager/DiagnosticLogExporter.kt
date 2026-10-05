@@ -1,7 +1,10 @@
 package top.nkbe.npatch.manager
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Environment
+import android.util.Base64
+import org.json.JSONObject
 import androidx.core.content.pm.PackageInfoCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -108,12 +111,21 @@ object DiagnosticLogExporter {
             appendLine("Generated (UTC): ${utcFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").format(Date())}")
             appendLine("Patched application: $targetPackageName")
             appendLine("Application version: ${packageInfo.versionName} (${PackageInfoCompat.getLongVersionCode(packageInfo)})")
+            appendLine("Signature bypass level: ${readSigBypassLevel(context, targetPackageName) ?: "unknown"}")
             appendLine()
             appendLine("Contents may include LoadedModule output, stack traces and app-provided log messages.")
             appendLine("Review the archive before sharing it publicly.")
         }
     }
 
+
+    private fun readSigBypassLevel(context: Context, targetPackageName: String): Int? = runCatching {
+        val encoded = context.packageManager
+            .getApplicationInfo(targetPackageName, PackageManager.GET_META_DATA)
+            .metaData?.getString("npatch") ?: return@runCatching null
+        val json = String(Base64.decode(encoded, Base64.DEFAULT), StandardCharsets.UTF_8)
+        JSONObject(json).optInt("sigBypassLevel", -1).takeIf { it >= 0 }
+    }.getOrNull()
 
     private data class DirectoryResult(
         val collected: Int,

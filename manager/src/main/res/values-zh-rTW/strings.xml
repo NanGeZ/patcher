@@ -88,6 +88,7 @@
     <string name="manage_system_section">系統</string>
     <string name="manage_danger_section">危險操作</string>
     <string name="manage_loader_version">Loader 版本</string>
+    <string name="manage_sigbypass_level">簽名繞過等級</string>
     <string name="manage_update_available">有更新</string>
     <string name="manage_update_loader_desc">有新版本可用（%1$d）</string>
     <string name="manage_repatch_desc">套用新設定重新修補此應用</string>

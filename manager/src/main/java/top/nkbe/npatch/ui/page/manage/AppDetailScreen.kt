@@ -71,6 +71,7 @@ import top.nkbe.npatch.ui.page.ACTION_APPLIST
 import top.nkbe.npatch.ui.page.Navigator
 import top.nkbe.npatch.ui.page.Route
 import top.nkbe.npatch.ui.page.SelectAppsResult
+import top.nkbe.npatch.ui.page.newpatch.sigBypassLvTitle
 import top.nkbe.npatch.ui.util.backgroundAwareCardColors
 import top.nkbe.npatch.ui.viewmodel.manage.AppManageViewModel
 import top.nkbe.npatch.ui.viewmodel.manage.ModuleManageViewModel
@@ -327,7 +328,7 @@ fun AppDetailScreen(
                 }
             }
 
-            if (isLocal || canUpdateLoader) {
+            run {
                 Spacer(Modifier.height(16.dp))
                 SmallTitle(text = stringResource(R.string.manage_status_section))
                 Card(
@@ -378,6 +379,21 @@ fun AppDetailScreen(
                             },
                         )
                     }
+                    BasicComponent(
+                        title = stringResource(R.string.manage_sigbypass_level),
+                        startAction = { DetailIcon(MiuixIcons.Regular.Info) },
+                        endActions = {
+                            Text(
+                                text = if (patchConfig.sigBypassLevel in 0..5) {
+                                    "Lv${patchConfig.sigBypassLevel} ${sigBypassLvTitle(patchConfig.sigBypassLevel)}"
+                                } else {
+                                    "Lv${patchConfig.sigBypassLevel}"
+                                },
+                                fontSize = 14.sp,
+                                color = colorScheme.onSurfaceVariantSummary,
+                            )
+                        },
+                    )
                     if (canUpdateLoader) {
                         BasicComponent(
                             title = stringResource(R.string.manage_loader_version),
