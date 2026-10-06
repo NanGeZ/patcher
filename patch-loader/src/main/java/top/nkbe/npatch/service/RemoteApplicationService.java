@@ -53,6 +53,7 @@ public class RemoteApplicationService implements IFrameworkService {
     private static final String TAG = "NPatch";
     private static final String MODULE_SERVICE = "top.nkbe.npatch.manager.ModuleService";
     private static final int CONNECTION_TIMEOUT_SEC = 2;
+    private static final long SNAPSHOT_CONNECTION_TIMEOUT_MS = 800L;
     private static final long MAX_BACKGROUND_WAIT_MS = 5 * 60 * 1000L;
     private static final int REGISTER_CLIENT_PACKAGE = 0x4E5041;
     private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
@@ -153,10 +154,13 @@ public class RemoteApplicationService implements IFrameworkService {
         List<LoadedModule> localModern = new ArrayList<>();
         loadModulesFromCache(this.context, localLegacy, localModern);
 
-        // 3. Wait up to CONNECTION_TIMEOUT_SEC for manager to respond
+        // 3. Wait for the manager; full deadline only when there is no snapshot to fall back on
         if (bindInitiated) {
+            long waitMs = localLegacy.isEmpty() && localModern.isEmpty()
+                    ? TimeUnit.SECONDS.toMillis(CONNECTION_TIMEOUT_SEC)
+                    : SNAPSHOT_CONNECTION_TIMEOUT_MS;
             try {
-                connectedOnTime.set(bindLatch.await(CONNECTION_TIMEOUT_SEC, TimeUnit.SECONDS));
+                connectedOnTime.set(bindLatch.await(waitMs, TimeUnit.MILLISECONDS));
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
             }

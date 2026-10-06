@@ -64,7 +64,9 @@ public class NeoLocalApplicationService extends IFrameworkService.Stub {
         if (providerResult != null) {
             legacyModules.addAll(providerResult.legacyModules);
             modernModules.addAll(providerResult.modernModules);
-            updateModulesCache(context, providerResult.cache);
+            if (providerResult.cache != null) {
+                updateModulesCache(context, providerResult.cache);
+            }
         } else {
             Log.w(TAG, "NeoLocal: Provider unavailable, falling back to local cache.");
             loadModulesFromCache(context);
@@ -174,7 +176,9 @@ public class NeoLocalApplicationService extends IFrameworkService.Stub {
                 return null;
             }
 
+            int rows = 0;
             while (cursor.moveToNext()) {
+                rows++;
                 if (Thread.currentThread().isInterrupted()) {
                     return null;
                 }
@@ -197,10 +201,11 @@ public class NeoLocalApplicationService extends IFrameworkService.Stub {
                     }
                 }
             }
+            // Some listed modules failed to load: keep the old snapshot rather than shrink it.
             return new ProviderResult(
                     providerLegacyModules,
                     providerModernModules,
-                    cacheArray
+                    cacheArray.length() == rows ? cacheArray : null
             );
         }
     }

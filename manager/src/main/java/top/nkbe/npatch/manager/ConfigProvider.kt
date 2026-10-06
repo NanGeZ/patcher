@@ -34,9 +34,11 @@ class ConfigProvider : ContentProvider() {
                 ConfigManager.getModulesForApp(targetPackage).map { it.pkgName }
             } catch (e: Exception) {
                 Log.e(TAG, "Database query failed", e)
-                emptyList<String>()
+                null
             }
         }
+        // null cursor = "unknown", so the caller keeps its snapshot; an empty cursor is authoritative
+        if (modulesList == null) return null
 
         // 返回 Cursor 給被修補的 APP
         val cursor = MatrixCursor(arrayOf("packageName"))
